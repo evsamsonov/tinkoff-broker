@@ -14,8 +14,8 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
 
+	"github.com/evsamsonov/tinkoff-broker"
 	"github.com/evsamsonov/trengin"
-	"github.com/evsamsonov/trengin/broker/tinkoff"
 )
 
 func main() {
