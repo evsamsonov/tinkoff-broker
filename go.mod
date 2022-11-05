@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/cenkalti/backoff/v4 v4.1.3
-	github.com/evsamsonov/trengin v1.0.1-0.20221031211353-4de5d78c75f9
+	github.com/evsamsonov/trengin v1.0.1-0.20221105110708-cd38388945a6
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.8.1
 	github.com/tinkoff/invest-api-go-sdk v1.0.2
