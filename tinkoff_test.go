@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"bou.ke/monkey"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	investapi "github.com/tinkoff/invest-api-go-sdk"
+	"github.com/undefinedlabs/go-mpatch"
 	"go.uber.org/zap"
 
 	"github.com/evsamsonov/trengin"
@@ -121,9 +121,11 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 			ordersServiceClient := &mockOrdersServiceClient{}
 			stopOrdersServiceClient := &mockStopOrdersServiceClient{}
 
-			monkey.Patch(uuid.New, func() uuid.UUID {
+			patch, err := mpatch.PatchMethod(uuid.New, func() uuid.UUID {
 				return uuid.MustParse("8942e9ae-e4e1-11ec-8fea-0242ac120002")
 			})
+			defer func() { assert.NoError(t, patch.Unpatch()) }()
+			assert.NoError(t, err)
 
 			tinkoff := &Tinkoff{
 				accountID:       "123",
@@ -359,7 +361,6 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 
 			assert.Equal(t, tt.want.stopLossID, tinkoff.currentPosition.StopLossID())
 			assert.Equal(t, tt.want.takeProfitID, tinkoff.currentPosition.TakeProfitID())
-
 		})
 	}
 }
@@ -404,9 +405,11 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			monkey.Patch(uuid.New, func() uuid.UUID {
+			patch, err := mpatch.PatchMethod(uuid.New, func() uuid.UUID {
 				return uuid.MustParse("8942e9ae-e4e1-11ec-8fea-0242ac120002")
 			})
+			defer func() { assert.NoError(t, patch.Unpatch()) }()
+			assert.NoError(t, err)
 
 			pos, err := trengin.NewPosition(
 				trengin.NewOpenPositionAction(tt.positionType, 2, 0, 0),

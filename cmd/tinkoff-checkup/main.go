@@ -210,5 +210,5 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 }
 func (t *TinkoffCheckuper) WaitAnyKey(msg string) {
 	fmt.Print(msg)
-	bufio.NewReader(os.Stdin).ReadBytes('\n')
+	_, _ = bufio.NewReader(os.Stdin).ReadBytes('\n')
 }

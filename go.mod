@@ -3,12 +3,12 @@ module github.com/evsamsonov/tinkoff-broker
 go 1.19
 
 require (
-	bou.ke/monkey v1.0.2
 	github.com/cenkalti/backoff/v4 v4.1.3
 	github.com/evsamsonov/trengin v1.0.1-0.20221031211353-4de5d78c75f9
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.8.1
 	github.com/tinkoff/invest-api-go-sdk v1.0.2
+	github.com/undefinedlabs/go-mpatch v1.0.6
 	go.uber.org/zap v1.23.0
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 	golang.org/x/term v0.1.0

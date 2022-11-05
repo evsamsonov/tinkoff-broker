@@ -324,9 +324,8 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 		if errors.Is(err, trengin.ErrAlreadyClosed) {
 			t.logger.Info("Position already closed", zap.Any("position", t.currentPosition))
 			return nil
-		} else {
-			return fmt.Errorf("close: %w", err)
 		}
+		return fmt.Errorf("close: %w", err)
 	}
 
 	t.logger.Info(

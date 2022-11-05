@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"bou.ke/monkey"
 	"github.com/stretchr/testify/assert"
+	"github.com/undefinedlabs/go-mpatch"
 
 	"github.com/evsamsonov/trengin"
 )
@@ -22,9 +22,11 @@ func Test_currentPosition_Close(t *testing.T) {
 	assert.NoError(t, err)
 
 	now := time.Now()
-	monkey.Patch(time.Now, func() time.Time {
+	patch, err := mpatch.PatchMethod(time.Now, func() time.Time {
 		return now
 	})
+	defer func() { assert.NoError(t, patch.Unpatch()) }()
+	assert.NoError(t, err)
 
 	closed := make(chan trengin.Position, 1)
 	currentPosition := currentPosition{
