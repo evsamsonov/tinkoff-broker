@@ -1,4 +1,4 @@
-package tinkoff
+package tnkbroker
 
 type Money interface {
 	GetUnits() int64

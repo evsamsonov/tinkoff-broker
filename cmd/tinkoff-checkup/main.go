@@ -10,12 +10,11 @@ import (
 	"os"
 	"syscall"
 
+	tnkbroker "github.com/evsamsonov/tinkoff-broker"
+	"github.com/evsamsonov/trengin"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
-
-	"github.com/evsamsonov/tinkoff-broker"
-	"github.com/evsamsonov/trengin"
 )
 
 func main() {
@@ -122,11 +121,11 @@ func NewTinkoffCheckuper(verbose bool) (*TinkoffCheckuper, error) {
 }
 
 func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
-	tinkoffBroker, err := tinkoff.New(
+	tinkoffBroker, err := tnkbroker.New(
 		params.tinkoffToken,
 		params.accountID,
 		params.instrumentFIGI,
-		tinkoff.WithLogger(t.logger),
+		tnkbroker.WithLogger(t.logger),
 	)
 	if err != nil {
 		return fmt.Errorf("create tinkoff broker: %w", err)

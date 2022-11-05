@@ -1,5 +1,5 @@
 // https://tinkoff.github.io/investAPI/
-package tinkoff
+package tnkbroker
 
 import (
 	"context"

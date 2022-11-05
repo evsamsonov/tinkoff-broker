@@ -1,3 +1,5 @@
+all: lint test
+
 lint:
 	go mod download
 	docker run --rm \

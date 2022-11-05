@@ -1,4 +1,4 @@
-package tinkoff
+package tnkbroker
 
 import investapi "github.com/tinkoff/invest-api-go-sdk"
 
