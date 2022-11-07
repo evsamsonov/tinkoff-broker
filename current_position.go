@@ -8,11 +8,12 @@ import (
 )
 
 type currentPosition struct {
-	position     *trengin.Position
-	stopLossID   string
-	takeProfitID string
-	closed       chan trengin.Position
-	mtx          sync.RWMutex
+	position          *trengin.Position
+	stopLossID        string
+	takeProfitID      string
+	remainingQuantity int64
+	closed            chan trengin.Position
+	mtx               sync.RWMutex
 }
 
 func (p *currentPosition) Set(
@@ -28,6 +29,7 @@ func (p *currentPosition) Set(
 	p.stopLossID = stopLossID
 	p.takeProfitID = takeProfitID
 	p.closed = closed
+	p.remainingQuantity = position.Quantity
 }
 
 func (p *currentPosition) Exist() bool {
@@ -72,11 +74,18 @@ func (p *currentPosition) SetTakeProfitID(takeProfitID string) {
 	p.takeProfitID = takeProfitID
 }
 
-func (p *currentPosition) SetQuantity(quantity int64) {
+func (p *currentPosition) DecRemainingQuantity(val int64) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 
-	p.position.Quantity = quantity
+	p.remainingQuantity -= val
+}
+
+func (p *currentPosition) EqualRemainingQuantity(quantity int64) bool {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+
+	return p.remainingQuantity == quantity
 }
 
 func (p *currentPosition) Close(closePrice float64) error {

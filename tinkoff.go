@@ -309,8 +309,9 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 		closePrice += price.ToFloat() * float64(trade.GetQuantity())
 	}
 
-	if executedQuantity != t.currentPosition.position.Quantity*int64(t.instrument.Lot) {
-		t.currentPosition.SetQuantity(executedQuantity / int64(t.instrument.Lot))
+	executedQuantityLot := executedQuantity / int64(t.instrument.Lot)
+	if t.currentPosition.EqualRemainingQuantity(executedQuantityLot) {
+		t.currentPosition.DecRemainingQuantity(executedQuantityLot)
 		t.logger.Info("Position partially closed", zap.Int64("executedQuantity", executedQuantity))
 		return nil
 	}
