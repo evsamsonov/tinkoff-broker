@@ -208,7 +208,7 @@ func (t *Tinkoff) ChangeConditionalOrder(
 		t.currentPosition.position.TakeProfit = action.TakeProfit
 	}
 
-	return *t.currentPosition.Position(), nil
+	return t.currentPosition.Position(), nil
 }
 
 func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionAction) (trengin.Position, error) {
@@ -225,22 +225,17 @@ func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionActi
 	}
 
 	position := t.currentPosition.Position()
-	logger := t.logger.With(zap.Any("position", position))
-
 	closePrice, err := t.openMarketOrder(ctx, position.Type.Inverse(), position.Quantity)
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("open market order: %w", err)
 	}
-	if err := t.currentPosition.Close(closePrice.ToFloat()); err != nil {
-		if errors.Is(err, trengin.ErrAlreadyClosed) {
-			logger.Info("Position already closed")
-			return *position, nil
-		}
+	position, err = t.currentPosition.Close(closePrice.ToFloat())
+	if err != nil {
 		return trengin.Position{}, fmt.Errorf("close: %w", err)
 	}
 
-	logger.Info("Position was closed")
-	return *position, nil
+	t.logger.Info("Position was closed", zap.Any("position", position))
+	return position, nil
 }
 
 func (t *Tinkoff) readTradesStream(ctx context.Context) error {
@@ -301,17 +296,18 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 		return nil
 	}
 
+	t.currentPosition.AddOrderTrade(orderTrades.GetTrades()...)
+
 	var executedQuantity int64
 	var closePrice float64
-	for _, trade := range orderTrades.GetTrades() {
-		executedQuantity += trade.GetQuantity()
+	for _, trade := range t.currentPosition.OrderTrades() {
+		quan := trade.GetQuantity() / int64(t.instrument.Lot)
+		executedQuantity += quan
 		price := NewMoneyValue(trade.Price)
-		closePrice += price.ToFloat() * float64(trade.GetQuantity())
+		closePrice += price.ToFloat() * float64(quan)
 	}
-
-	if executedQuantity != t.currentPosition.position.Quantity*int64(t.instrument.Lot) {
-		t.currentPosition.SetQuantity(executedQuantity / int64(t.instrument.Lot))
-		t.logger.Info("Position partially closed", zap.Int64("executedQuantity", executedQuantity))
+	if executedQuantity < t.currentPosition.Position().Quantity {
+		t.logger.Info("Position partially closed", zap.Any("executedQuantity", executedQuantity))
 		return nil
 	}
 
@@ -320,7 +316,8 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 	}
 
 	closePrice /= float64(executedQuantity)
-	if err := t.currentPosition.Close(closePrice); err != nil {
+	position, err := t.currentPosition.Close(closePrice)
+	if err != nil {
 		if errors.Is(err, trengin.ErrAlreadyClosed) {
 			t.logger.Info("Position already closed", zap.Any("position", t.currentPosition))
 			return nil
@@ -331,7 +328,7 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 	t.logger.Info(
 		"Position was closed by order trades",
 		zap.Any("orderTrades", orderTrades),
-		zap.Any("position", t.currentPosition),
+		zap.Any("position", position),
 	)
 	return nil
 }
