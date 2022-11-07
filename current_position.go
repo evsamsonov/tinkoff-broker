@@ -4,16 +4,18 @@ import (
 	"sync"
 	"time"
 
+	investapi "github.com/tinkoff/invest-api-go-sdk"
+
 	"github.com/evsamsonov/trengin"
 )
 
 type currentPosition struct {
-	position          *trengin.Position
-	stopLossID        string
-	takeProfitID      string
-	remainingQuantity int64
-	closed            chan trengin.Position
-	mtx               sync.RWMutex
+	position     *trengin.Position
+	stopLossID   string
+	takeProfitID string
+	orderTrades  []*investapi.OrderTrade
+	closed       chan trengin.Position
+	mtx          sync.RWMutex
 }
 
 func (p *currentPosition) Set(
@@ -29,7 +31,6 @@ func (p *currentPosition) Set(
 	p.stopLossID = stopLossID
 	p.takeProfitID = takeProfitID
 	p.closed = closed
-	p.remainingQuantity = position.Quantity
 }
 
 func (p *currentPosition) Exist() bool {
@@ -39,11 +40,11 @@ func (p *currentPosition) Exist() bool {
 	return p.position != nil
 }
 
-func (p *currentPosition) Position() *trengin.Position {
+func (p *currentPosition) Position() trengin.Position {
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
 
-	return p.position
+	return *p.position
 }
 
 func (p *currentPosition) StopLossID() string {
@@ -74,29 +75,32 @@ func (p *currentPosition) SetTakeProfitID(takeProfitID string) {
 	p.takeProfitID = takeProfitID
 }
 
-func (p *currentPosition) DecRemainingQuantity(val int64) {
+func (p *currentPosition) AddOrderTrade(orderTrades ...*investapi.OrderTrade) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 
-	p.remainingQuantity -= val
+	p.orderTrades = append(p.orderTrades, orderTrades...)
 }
 
-func (p *currentPosition) EqualRemainingQuantity(quantity int64) bool {
+func (p *currentPosition) OrderTrades() []*investapi.OrderTrade {
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
 
-	return p.remainingQuantity == quantity
+	result := make([]*investapi.OrderTrade, len(p.orderTrades))
+	copy(result, p.orderTrades)
+	return p.orderTrades
 }
 
-func (p *currentPosition) Close(closePrice float64) error {
+func (p *currentPosition) Close(closePrice float64) (trengin.Position, error) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
 
 	if err := p.position.Close(time.Now(), closePrice); err != nil {
-		return err
+		return trengin.Position{}, err
 	}
 
-	p.closed <- *p.position
+	position := *p.position
+	p.closed <- position
 	p.position, p.stopLossID, p.takeProfitID = nil, "", ""
-	return nil
+	return position, nil
 }

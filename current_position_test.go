@@ -35,11 +35,11 @@ func Test_currentPosition_Close(t *testing.T) {
 		takeProfitID: "3",
 		closed:       closed,
 	}
-	err = currentPosition.Close(123.45)
+	_, err = currentPosition.Close(123.45)
 	assert.NoError(t, err)
 	assert.Equal(t, "", currentPosition.StopLossID())
 	assert.Equal(t, "", currentPosition.TakeProfitID())
-	assert.Nil(t, currentPosition.Position())
+	assert.False(t, currentPosition.Exist())
 
 	select {
 	case pos := <-closed:

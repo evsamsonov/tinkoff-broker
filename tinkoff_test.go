@@ -588,7 +588,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 
 	closed := make(chan trengin.Position, 1)
 	pos, err := trengin.NewPosition(
-		trengin.NewOpenPositionAction(trengin.Long, 3, 0, 0),
+		trengin.NewOpenPositionAction(trengin.Long, 4, 0, 0),
 		time.Now(),
 		150,
 	)
@@ -633,27 +633,11 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 	}
 
 	ot := &investapi.OrderTrades{
-		OrderId:   "",
-		CreatedAt: nil,
 		Direction: investapi.OrderDirection_ORDER_DIRECTION_SELL,
 		Figi:      "FUTSBRF06220",
 		Trades: []*investapi.OrderTrade{
-			{
-				DateTime: nil,
-				Price: &investapi.Quotation{
-					Units: 112,
-					Nano:  0.3 * 10e8,
-				},
-				Quantity: 2,
-			},
-			{
-				DateTime: nil,
-				Price: &investapi.Quotation{
-					Units: 237,
-					Nano:  0.1 * 10e8,
-				},
-				Quantity: 1,
-			},
+			{Price: &investapi.Quotation{Units: 112, Nano: 0.3 * 10e8}, Quantity: 2},
+			{Price: &investapi.Quotation{Units: 237, Nano: 0.1 * 10e8}, Quantity: 1},
 		},
 		AccountId: "123",
 	}
@@ -661,9 +645,21 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 	err = tinkoff.processOrderTrades(context.Background(), ot)
 	assert.NoError(t, err)
 
+	ot2 := &investapi.OrderTrades{
+		Direction: investapi.OrderDirection_ORDER_DIRECTION_SELL,
+		Figi:      "FUTSBRF06220",
+		Trades: []*investapi.OrderTrade{
+			{Price: &investapi.Quotation{Units: 237, Nano: 0.1 * 10e8}, Quantity: 1},
+		},
+		AccountId: "123",
+	}
+
+	err = tinkoff.processOrderTrades(context.Background(), ot2)
+	assert.NoError(t, err)
+
 	select {
 	case position := <-closed:
-		assert.InEpsilon(t, 153.9, position.ClosePrice, float64EqualityThreshold)
+		assert.InEpsilon(t, 174.7, position.ClosePrice, float64EqualityThreshold)
 	default:
 		assert.Fail(t, "Failed to get closed position")
 	}
