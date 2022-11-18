@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	investapi "github.com/tinkoff/invest-api-go-sdk"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
@@ -247,34 +248,59 @@ func (t *Tinkoff) readTradesStream(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("trades stream: %w", err)
 	}
-	for {
-		resp, err := stream.Recv()
-		if err != nil {
-			if err == io.EOF {
-				t.logger.Info("Trades stream connection is closed")
-				break
-			}
-			if status.Code(err) == codes.Canceled {
-				t.logger.Info("Trades stream connection is canceled")
-				break
-			}
-			return fmt.Errorf("stream recv: %w", err)
-		}
 
-		switch v := resp.Payload.(type) {
-		case *investapi.TradesStreamResponse_Ping:
-			t.logger.Debug("Trade stream ping was received", zap.Any("ping", v))
-		case *investapi.TradesStreamResponse_OrderTrades:
-			t.logger.Info("Order trades were received", zap.Any("orderTrades", v))
-
-			if err := t.processOrderTrades(ctx, v.OrderTrades); err != nil {
-				return fmt.Errorf("process order trades: %w", err)
+	g := errgroup.Group{}
+	heartbeat := make(chan struct{})
+	g.Go(func() error {
+		for {
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-heartbeat:
+				continue
+			case <-time.After(1 * time.Minute):
+				cancel()
+				return fmt.Errorf("ping timed out")
 			}
-		default:
-			return errors.New("unexpected payload")
 		}
-	}
-	return nil
+	})
+
+	g.Go(func() error {
+		for {
+			resp, err := stream.Recv()
+			if err != nil {
+				if err == io.EOF {
+					t.logger.Info("Trades stream connection is closed")
+					break
+				}
+				if status.Code(err) == codes.Canceled {
+					t.logger.Info("Trades stream connection is canceled")
+					break
+				}
+				return fmt.Errorf("stream recv: %w", err)
+			}
+
+			switch v := resp.Payload.(type) {
+			case *investapi.TradesStreamResponse_Ping:
+				t.logger.Debug("Trade stream ping was received", zap.Any("ping", v))
+
+				select {
+				case heartbeat <- struct{}{}:
+				default:
+				}
+			case *investapi.TradesStreamResponse_OrderTrades:
+				t.logger.Info("Order trades were received", zap.Any("orderTrades", v))
+
+				if err := t.processOrderTrades(ctx, v.OrderTrades); err != nil {
+					return fmt.Errorf("process order trades: %w", err)
+				}
+			default:
+				return errors.New("unexpected payload")
+			}
+		}
+		return nil
+	})
+	return g.Wait()
 }
 
 func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi.OrderTrades) error {
