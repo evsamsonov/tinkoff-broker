@@ -10,7 +10,6 @@ import (
 	"math"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/google/uuid"
 	investapi "github.com/tinkoff/invest-api-go-sdk"
 	"go.uber.org/zap"
@@ -27,22 +26,26 @@ import (
 var _ trengin.Broker = &Tinkoff{}
 
 const (
-	tinkoffHost             = "invest-public-api.tinkoff.ru:443"
-	defaultProtectiveSpread = 5
+	tinkoffHost                    = "invest-public-api.tinkoff.ru:443"
+	defaultProtectiveSpread        = 5
+	defaultTradeStreamRetryTimeout = 1 * time.Minute
+	defaultTradeStreamPingTimeout  = 1 * time.Minute
 )
 
 type Tinkoff struct {
-	accountID         string
-	token             string
-	appName           string
-	orderClient       investapi.OrdersServiceClient
-	stopOrderClient   investapi.StopOrdersServiceClient
-	orderStreamClient investapi.OrdersStreamServiceClient
-	instrumentFIGI    string
-	instrument        *investapi.Instrument
-	protectiveSpread  float64
-	currentPosition   *currentPosition
-	logger            *zap.Logger
+	accountID               string
+	token                   string
+	appName                 string
+	orderClient             investapi.OrdersServiceClient
+	stopOrderClient         investapi.StopOrdersServiceClient
+	tradeStreamClient       investapi.OrdersStreamServiceClient
+	tradeStreamRetryTimeout time.Duration
+	tradeStreamPingTimeout  time.Duration
+	instrumentFIGI          string
+	instrument              *investapi.Instrument
+	protectiveSpread        float64
+	currentPosition         *currentPosition
+	logger                  *zap.Logger
 }
 
 type Option func(*Tinkoff)
@@ -65,6 +68,18 @@ func WithProtectiveSpread(protectiveSpread float64) Option {
 	}
 }
 
+func WithTradeStreamRetryTimeout(timeout time.Duration) Option {
+	return func(t *Tinkoff) {
+		t.tradeStreamRetryTimeout = timeout
+	}
+}
+
+func WithTradeStreamPingTimeout(timeout time.Duration) Option {
+	return func(t *Tinkoff) {
+		t.tradeStreamPingTimeout = timeout
+	}
+}
+
 func New(token, accountID, instrumentFIGI string, opts ...Option) (*Tinkoff, error) {
 	conn, err := grpc.Dial(
 		tinkoffHost,
@@ -80,15 +95,17 @@ func New(token, accountID, instrumentFIGI string, opts ...Option) (*Tinkoff, err
 	}
 
 	tinkoff := &Tinkoff{
-		accountID:         accountID,
-		token:             token,
-		instrumentFIGI:    instrumentFIGI,
-		protectiveSpread:  defaultProtectiveSpread,
-		orderClient:       investapi.NewOrdersServiceClient(conn),
-		stopOrderClient:   investapi.NewStopOrdersServiceClient(conn),
-		orderStreamClient: investapi.NewOrdersStreamServiceClient(conn),
-		currentPosition:   &currentPosition{},
-		logger:            zap.NewNop(),
+		accountID:               accountID,
+		token:                   token,
+		instrumentFIGI:          instrumentFIGI,
+		protectiveSpread:        defaultProtectiveSpread,
+		orderClient:             investapi.NewOrdersServiceClient(conn),
+		stopOrderClient:         investapi.NewStopOrdersServiceClient(conn),
+		tradeStreamClient:       investapi.NewOrdersStreamServiceClient(conn),
+		tradeStreamRetryTimeout: defaultTradeStreamRetryTimeout,
+		tradeStreamPingTimeout:  defaultTradeStreamPingTimeout,
+		currentPosition:         &currentPosition{},
+		logger:                  zap.NewNop(),
 	}
 
 	ctx := tinkoff.ctxWithMetadata(context.Background())
@@ -109,21 +126,18 @@ func New(token, accountID, instrumentFIGI string, opts ...Option) (*Tinkoff, err
 }
 
 func (t *Tinkoff) Run(ctx context.Context) error {
-	readOrderStream := func() error {
-		return t.readTradesStream(ctx)
+	for {
+		err := t.readTradesStream(ctx)
+		if err == nil {
+			return nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-time.After(t.tradeStreamRetryTimeout):
+		}
+		t.logger.Warn("Retry read trades stream", zap.Error(err))
 	}
-	exponentialBackOff := backoff.NewExponentialBackOff()
-	exponentialBackOff.MaxElapsedTime = 0
-	err := backoff.RetryNotify(
-		readOrderStream,
-		backoff.WithContext(exponentialBackOff, ctx),
-		func(err error, duration time.Duration) {
-			t.logger.Warn("Retry read trades stream", zap.Error(err), zap.Duration("duration", duration))
-		})
-	if err != nil {
-		return fmt.Errorf("retry: %w", err)
-	}
-	return nil
 }
 
 func (t *Tinkoff) OpenPosition(
@@ -244,7 +258,7 @@ func (t *Tinkoff) readTradesStream(ctx context.Context) error {
 	defer cancel()
 
 	ctx = t.ctxWithMetadata(ctx)
-	stream, err := t.orderStreamClient.TradesStream(ctx, &investapi.TradesStreamRequest{})
+	stream, err := t.tradeStreamClient.TradesStream(ctx, &investapi.TradesStreamRequest{})
 	if err != nil {
 		return fmt.Errorf("trades stream: %w", err)
 	}
@@ -258,7 +272,7 @@ func (t *Tinkoff) readTradesStream(ctx context.Context) error {
 				return nil
 			case <-heartbeat:
 				continue
-			case <-time.After(1 * time.Minute):
+			case <-time.After(t.tradeStreamPingTimeout):
 				cancel()
 				return fmt.Errorf("ping timed out")
 			}
