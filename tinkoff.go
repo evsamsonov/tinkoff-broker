@@ -29,7 +29,7 @@ const (
 	tinkoffHost                    = "invest-public-api.tinkoff.ru:443"
 	defaultProtectiveSpread        = 5
 	defaultTradeStreamRetryTimeout = 1 * time.Minute
-	defaultTradeStreamPingTimeout  = 1 * time.Minute
+	defaultTradeStreamPingTimeout  = 6 * time.Minute
 )
 
 type Tinkoff struct {
@@ -131,12 +131,17 @@ func (t *Tinkoff) Run(ctx context.Context) error {
 		if err == nil {
 			return nil
 		}
+		t.logger.Error(
+			"Failed to read trade stream. Retry after timeout",
+			zap.Error(err),
+			zap.Duration("timeout", t.tradeStreamRetryTimeout),
+		)
+
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-time.After(t.tradeStreamRetryTimeout):
 		}
-		t.logger.Warn("Retry read trades stream", zap.Error(err))
 	}
 }
 
