@@ -154,7 +154,7 @@ func (t *Tinkoff) OpenPosition(
 	}
 
 	ctx = t.ctxWithMetadata(ctx)
-	openPrice, err := t.openMarketOrder(ctx, action.Type, action.Quantity)
+	openPrice, commission, err := t.openMarketOrder(ctx, action.Type, action.Quantity)
 	if err != nil {
 		return trengin.Position{}, nil, fmt.Errorf("open market order: %w", err)
 	}
@@ -163,6 +163,7 @@ func (t *Tinkoff) OpenPosition(
 	if err != nil {
 		return trengin.Position{}, nil, fmt.Errorf("new position: %w", err)
 	}
+	position.AddCommission(commission.ToFloat())
 
 	var stopLossID, takeProfitID string
 	if action.StopLossIndent != 0 {
@@ -245,10 +246,12 @@ func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionActi
 	}
 
 	position := t.currentPosition.Position()
-	closePrice, err := t.openMarketOrder(ctx, position.Type.Inverse(), position.Quantity)
+	closePrice, commission, err := t.openMarketOrder(ctx, position.Type.Inverse(), position.Quantity)
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("open market order: %w", err)
 	}
+	position.AddCommission(commission.ToFloat())
+
 	position, err = t.currentPosition.Close(closePrice.ToFloat())
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("close: %w", err)
@@ -390,7 +393,7 @@ func (t *Tinkoff) openMarketOrder(
 	ctx context.Context,
 	positionType trengin.PositionType,
 	quantity int64,
-) (*MoneyValue, error) {
+) (*MoneyValue, *MoneyValue, error) {
 	direction := investapi.OrderDirection_ORDER_DIRECTION_BUY
 	if positionType.IsShort() {
 		direction = investapi.OrderDirection_ORDER_DIRECTION_SELL
@@ -407,16 +410,16 @@ func (t *Tinkoff) openMarketOrder(
 	order, err := t.orderClient.PostOrder(ctx, orderRequest)
 	if err != nil {
 		t.logger.Error("Failed to execute order", zap.Error(err), zap.Any("orderRequest", orderRequest))
-		return nil, fmt.Errorf("post order: %w", err)
+		return nil, nil, fmt.Errorf("post order: %w", err)
 	}
 
 	if order.ExecutionReportStatus != investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL {
 		t.logger.Error("Order execution status is not fill", zap.Any("orderRequest", orderRequest))
-		return nil, errors.New("order execution status is not fill")
+		return nil, nil, errors.New("order execution status is not fill")
 	}
 
 	t.logger.Info("Order was executed", zap.Any("orderRequest", orderRequest), zap.Any("order", order))
-	return NewMoneyValue(order.ExecutedOrderPrice), nil
+	return NewMoneyValue(order.ExecutedOrderPrice), NewMoneyValue(order.ExecutedCommission), nil
 }
 
 type stopOrderType int
