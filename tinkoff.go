@@ -419,7 +419,7 @@ func (t *Tinkoff) openMarketOrder(
 	}
 
 	t.logger.Info("Order was executed", zap.Any("orderRequest", orderRequest), zap.Any("order", order))
-	return NewMoneyValue(order.ExecutedOrderPrice), NewMoneyValue(order.ExecutedCommission), nil
+	return NewMoneyValue(order.ExecutedOrderPrice), NewMoneyValue(order.InitialCommission), nil
 }
 
 type stopOrderType int
