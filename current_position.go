@@ -75,6 +75,13 @@ func (p *currentPosition) SetTakeProfitID(takeProfitID string) {
 	p.takeProfitID = takeProfitID
 }
 
+func (p *currentPosition) AddCommission(commission float64) {
+	p.mtx.Lock()
+	defer p.mtx.Unlock()
+
+	p.position.AddCommission(commission)
+}
+
 func (p *currentPosition) AddOrderTrade(orderTrades ...*investapi.OrderTrade) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()

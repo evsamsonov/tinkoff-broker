@@ -246,12 +246,10 @@ func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionActi
 	}
 
 	position := t.currentPosition.Position()
-	closePrice, commission, err := t.openMarketOrder(ctx, position.Type.Inverse(), position.Quantity)
+	closePrice, _, err := t.openMarketOrder(ctx, position.Type.Inverse(), position.Quantity)
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("open market order: %w", err)
 	}
-	position.AddCommission(commission.ToFloat())
-
 	position, err = t.currentPosition.Close(closePrice.ToFloat())
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("close: %w", err)
@@ -336,10 +334,9 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 		return nil
 	}
 
-	longClosed := t.currentPosition.position.Type.IsLong() &&
-		orderTrades.Direction == investapi.OrderDirection_ORDER_DIRECTION_SELL
-	shortClosed := t.currentPosition.position.Type.IsShort() &&
-		orderTrades.Direction == investapi.OrderDirection_ORDER_DIRECTION_BUY
+	position := t.currentPosition.Position()
+	longClosed := position.IsLong() && orderTrades.Direction == investapi.OrderDirection_ORDER_DIRECTION_SELL
+	shortClosed := position.IsShort() && orderTrades.Direction == investapi.OrderDirection_ORDER_DIRECTION_BUY
 	if !longClosed && !shortClosed {
 		return nil
 	}
@@ -362,6 +359,9 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 	if err := t.cancelStopOrders(ctx); err != nil {
 		return err
 	}
+
+	commission := t.orderCommission(ctx, orderTrades.OrderId)
+	t.currentPosition.AddCommission(commission)
 
 	closePrice /= float64(executedQuantity)
 	position, err := t.currentPosition.Close(closePrice)
@@ -577,4 +577,23 @@ func (t *Tinkoff) cancelStopOrders(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (t *Tinkoff) orderCommission(ctx context.Context, orderID string) float64 {
+	orderStateRequest := &investapi.GetOrderStateRequest{
+		AccountId: t.accountID,
+		OrderId:   orderID,
+	}
+	orderState, err := t.orderClient.GetOrderState(ctx, orderStateRequest)
+	if err != nil {
+		t.logger.Error(
+			"Failed to get order commission",
+			zap.Error(err),
+			zap.Any("orderStateRequest", orderStateRequest),
+		)
+		return 0
+	}
+	t.logger.Debug("Order state was received", zap.Any("orderState", orderState))
+
+	return NewMoneyValue(orderState.InitialCommission).ToFloat()
 }
