@@ -246,7 +246,7 @@ func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionActi
 	}
 
 	position := t.currentPosition.Position()
-	closePrice, _, err := t.openMarketOrder(ctx, position.Type.Inverse(), position.Quantity)
+	closePrice, commission, err := t.openMarketOrder(ctx, position.Type.Inverse(), position.Quantity)
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("open market order: %w", err)
 	}
@@ -254,6 +254,7 @@ func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionActi
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("close: %w", err)
 	}
+	position.AddCommission(commission.ToFloat())
 
 	t.logger.Info("Position was closed", zap.Any("position", position))
 	return position, nil
@@ -361,7 +362,7 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 	}
 
 	commission := t.orderCommission(ctx, orderTrades.OrderId)
-	t.currentPosition.AddCommission(commission)
+	t.currentPosition.AddCommission(commission.ToFloat())
 
 	closePrice /= float64(executedQuantity)
 	position, err := t.currentPosition.Close(closePrice)
@@ -417,9 +418,10 @@ func (t *Tinkoff) openMarketOrder(
 		t.logger.Error("Order execution status is not fill", zap.Any("orderRequest", orderRequest))
 		return nil, nil, errors.New("order execution status is not fill")
 	}
+	commission := t.orderCommission(ctx, orderRequest.OrderId)
 
 	t.logger.Info("Order was executed", zap.Any("orderRequest", orderRequest), zap.Any("order", order))
-	return NewMoneyValue(order.ExecutedOrderPrice), NewMoneyValue(order.InitialCommission), nil
+	return NewMoneyValue(order.ExecutedOrderPrice), commission, nil
 }
 
 type stopOrderType int
@@ -579,7 +581,7 @@ func (t *Tinkoff) cancelStopOrders(ctx context.Context) error {
 	return nil
 }
 
-func (t *Tinkoff) orderCommission(ctx context.Context, orderID string) float64 {
+func (t *Tinkoff) orderCommission(ctx context.Context, orderID string) *MoneyValue {
 	orderStateRequest := &investapi.GetOrderStateRequest{
 		AccountId: t.accountID,
 		OrderId:   orderID,
@@ -591,9 +593,9 @@ func (t *Tinkoff) orderCommission(ctx context.Context, orderID string) float64 {
 			zap.Error(err),
 			zap.Any("orderStateRequest", orderStateRequest),
 		)
-		return 0
+		return NewZeroMoneyValue()
 	}
 	t.logger.Debug("Order state was received", zap.Any("orderState", orderState))
 
-	return NewMoneyValue(orderState.InitialCommission).ToFloat()
+	return NewMoneyValue(orderState.InitialCommission)
 }
