@@ -418,7 +418,7 @@ func (t *Tinkoff) openMarketOrder(
 		t.logger.Error("Order execution status is not fill", zap.Any("orderRequest", orderRequest))
 		return nil, nil, errors.New("order execution status is not fill")
 	}
-	commission := t.orderCommission(ctx, orderRequest.OrderId)
+	commission := t.orderCommission(ctx, order.OrderId)
 
 	t.logger.Info("Order was executed", zap.Any("orderRequest", orderRequest), zap.Any("order", order))
 	return NewMoneyValue(order.ExecutedOrderPrice), commission, nil
