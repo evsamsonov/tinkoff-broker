@@ -152,6 +152,17 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 			}).Return(&investapi.PostOrderResponse{
 				ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
 				ExecutedOrderPrice:    tt.want.openPrice,
+				OrderId:               "1953",
+			}, nil)
+
+			ordersServiceClient.On("GetOrderState", mock.Anything, &investapi.GetOrderStateRequest{
+				AccountId: "123",
+				OrderId:   "1953",
+			}).Return(&investapi.OrderState{
+				InitialCommission: &investapi.MoneyValue{
+					Units: 12,
+					Nano:  0.1 * 10e8,
+				},
 			}, nil)
 
 			if tt.openPositionAction.StopLossIndent != 0 {
@@ -457,6 +468,17 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 			}).Return(&investapi.PostOrderResponse{
 				ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
 				ExecutedOrderPrice:    tt.wantClosePrice,
+				OrderId:               "1953",
+			}, nil)
+
+			ordersServiceClient.On("GetOrderState", mock.Anything, &investapi.GetOrderStateRequest{
+				AccountId: "123",
+				OrderId:   "1953",
+			}).Return(&investapi.OrderState{
+				InitialCommission: &investapi.MoneyValue{
+					Units: 12,
+					Nano:  0.1 * 10e8,
+				},
 			}, nil)
 
 			position, err := tinkoff.ClosePosition(context.Background(), trengin.ClosePositionAction{})
@@ -611,6 +633,13 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 		StopOrderId: "3",
 	}).Return(&investapi.CancelStopOrderResponse{}, nil)
 
+	ordersServiceClient.On("GetOrderState", mock.Anything, &investapi.GetOrderStateRequest{
+		AccountId: "123",
+		OrderId:   "1953465028754600565",
+	}).Return(&investapi.OrderState{
+		InitialCommission: &investapi.MoneyValue{Units: 125, Nano: 0.6 * 10e8},
+	}, nil)
+
 	tinkoff := &Tinkoff{
 		accountID:       "123",
 		orderClient:     ordersServiceClient,
@@ -633,6 +662,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 	}
 
 	ot := &investapi.OrderTrades{
+		OrderId:   "1953465028754600565",
 		Direction: investapi.OrderDirection_ORDER_DIRECTION_SELL,
 		Figi:      "FUTSBRF06220",
 		Trades: []*investapi.OrderTrade{
@@ -646,6 +676,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 	assert.NoError(t, err)
 
 	ot2 := &investapi.OrderTrades{
+		OrderId:   "1953465028754600565",
 		Direction: investapi.OrderDirection_ORDER_DIRECTION_SELL,
 		Figi:      "FUTSBRF06220",
 		Trades: []*investapi.OrderTrade{
@@ -660,6 +691,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 	select {
 	case position := <-closed:
 		assert.InEpsilon(t, 174.7, position.ClosePrice, float64EqualityThreshold)
+		assert.InEpsilon(t, 125.6, position.Commission, float64EqualityThreshold)
 	default:
 		assert.Fail(t, "Failed to get closed position")
 	}
