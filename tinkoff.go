@@ -595,7 +595,7 @@ func (t *Tinkoff) orderCommission(ctx context.Context, orderID string) *MoneyVal
 		)
 		return NewZeroMoneyValue()
 	}
-	t.logger.Debug("Order state was received", zap.Any("orderState", orderState))
+	t.logger.Info("Order state was received", zap.Any("orderState", orderState))
 
 	return NewMoneyValue(orderState.InitialCommission)
 }
