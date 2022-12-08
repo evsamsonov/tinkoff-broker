@@ -152,6 +152,17 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 			}).Return(&investapi.PostOrderResponse{
 				ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
 				ExecutedOrderPrice:    tt.want.openPrice,
+				OrderId:               "1953",
+			}, nil)
+
+			ordersServiceClient.On("GetOrderState", mock.Anything, &investapi.GetOrderStateRequest{
+				AccountId: "123",
+				OrderId:   "1953",
+			}).Return(&investapi.OrderState{
+				InitialCommission: &investapi.MoneyValue{
+					Units: 12,
+					Nano:  0.1 * 10e8,
+				},
 			}, nil)
 
 			if tt.openPositionAction.StopLossIndent != 0 {
@@ -457,6 +468,17 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 			}).Return(&investapi.PostOrderResponse{
 				ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
 				ExecutedOrderPrice:    tt.wantClosePrice,
+				OrderId:               "1953",
+			}, nil)
+
+			ordersServiceClient.On("GetOrderState", mock.Anything, &investapi.GetOrderStateRequest{
+				AccountId: "123",
+				OrderId:   "1953",
+			}).Return(&investapi.OrderState{
+				InitialCommission: &investapi.MoneyValue{
+					Units: 12,
+					Nano:  0.1 * 10e8,
+				},
 			}, nil)
 
 			position, err := tinkoff.ClosePosition(context.Background(), trengin.ClosePositionAction{})
