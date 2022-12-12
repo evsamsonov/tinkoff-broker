@@ -160,10 +160,11 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 			return fmt.Errorf("open position: %w", err)
 		}
 		fmt.Printf(
-			"Position opened. Open price: %f, stop loss: %f, take profit: %f\n",
+			"Position was opened. Open price: %f, stop loss: %f, take profit: %f, commission: %f\n",
 			position.OpenPrice,
 			position.StopLoss,
 			position.TakeProfit,
+			position.Commission,
 		)
 
 		g.Go(func() error {
@@ -172,9 +173,11 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 				return nil
 			case pos := <-positionClosed:
 				fmt.Printf(
-					"Position closed. Conditional orders removed. Close price: %f, profit: %f\n",
+					"Position was closed. Conditional orders was removed. "+
+						"Close price: %f, profit: %f, commission: %f\n",
 					pos.ClosePrice,
 					pos.Profit(),
+					position.Commission,
 				)
 			}
 			return nil
@@ -183,15 +186,15 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 
 		changeConditionalOrderAction := trengin.ChangeConditionalOrderAction{
 			PositionID: position.ID,
-			StopLoss:   position.OpenPrice - params.stopLossIndent/2,
-			TakeProfit: position.OpenPrice + params.takeProfitIndent/2,
+			StopLoss:   position.OpenPrice - params.stopLossIndent/2*position.Type.Multiplier(),
+			TakeProfit: position.OpenPrice + params.takeProfitIndent/2*position.Type.Multiplier(),
 		}
 		position, err = tinkoffBroker.ChangeConditionalOrder(ctx, changeConditionalOrderAction)
 		if err != nil {
 			return fmt.Errorf("change condition order: %w", err)
 		}
 		fmt.Printf(
-			"Conditional orders changed. New stop loss: %f, new take profit: %f\n",
+			"Conditional orders was changed. New stop loss: %f, new take profit: %f\n",
 			position.StopLoss,
 			position.TakeProfit,
 		)
