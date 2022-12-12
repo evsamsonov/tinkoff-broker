@@ -160,10 +160,11 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 			return fmt.Errorf("open position: %w", err)
 		}
 		fmt.Printf(
-			"Position was opened. Open price: %f, stop loss: %f, take profit: %f\n",
+			"Position was opened. Open price: %f, stop loss: %f, take profit: %f, commission: %f\n",
 			position.OpenPrice,
 			position.StopLoss,
 			position.TakeProfit,
+			position.Commission,
 		)
 
 		g.Go(func() error {
@@ -172,9 +173,11 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 				return nil
 			case pos := <-positionClosed:
 				fmt.Printf(
-					"Position was closed. Conditional orders was removed. Close price: %f, profit: %f\n",
+					"Position was closed. Conditional orders was removed. "+
+						"Close price: %f, profit: %f, commission: %f\n",
 					pos.ClosePrice,
 					pos.Profit(),
+					position.Commission,
 				)
 			}
 			return nil
