@@ -1,4 +1,8 @@
-// https://tinkoff.github.io/investAPI/
+// Package tnkbroker contains an implementation of trengin.Broker using [Tinkoff Invest API]
+//
+// It's not support multiple positions.
+//
+// [Tinkoff Invest API]: https://tinkoff.github.io/investAPI/
 package tnkbroker
 
 import (
@@ -27,11 +31,13 @@ var _ trengin.Broker = &Tinkoff{}
 
 const (
 	tinkoffHost                    = "invest-public-api.tinkoff.ru:443"
-	defaultProtectiveSpread        = 5
+	defaultProtectiveSpread        = 5 // In percent
 	defaultTradeStreamRetryTimeout = 1 * time.Minute
 	defaultTradeStreamPingTimeout  = 6 * time.Minute
 )
 
+// Tinkoff implements of trengin.Broker using Tinkoff Invest API
+// https://tinkoff.github.io/investAPI/
 type Tinkoff struct {
 	accountID               string
 	token                   string
@@ -56,6 +62,7 @@ func WithLogger(logger *zap.Logger) Option {
 	}
 }
 
+// Link to
 func WithAppName(appName string) Option {
 	return func(t *Tinkoff) {
 		t.appName = appName
