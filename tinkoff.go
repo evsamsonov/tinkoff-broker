@@ -1,5 +1,6 @@
 // Package tnkbroker implements [trengin.Broker] using [Tinkoff Invest API].
 // The implementation doesn't support multiple open positions at the same time.
+// Commission in position is approximate.
 //
 // [Tinkoff Invest API]: https://tinkoff.github.io/investAPI/
 package tnkbroker
@@ -143,7 +144,7 @@ func New(token, accountID, instrumentFIGI string, opts ...Option) (*Tinkoff, err
 	return tinkoff, nil
 }
 
-// Run starts to track open position
+// Run starts to track an open position
 func (t *Tinkoff) Run(ctx context.Context) error {
 	for {
 		err := t.readTradesStream(ctx)
@@ -164,8 +165,7 @@ func (t *Tinkoff) Run(ctx context.Context) error {
 	}
 }
 
-// OpenPosition opens position, returns new position
-// and channel for tracking position closing.
+// OpenPosition opens position, returns new position and channel for tracking position closing.
 func (t *Tinkoff) OpenPosition(
 	ctx context.Context,
 	action trengin.OpenPositionAction,
@@ -207,7 +207,7 @@ func (t *Tinkoff) OpenPosition(
 	return *position, positionClosed, nil
 }
 
-// ChangeConditionalOrder changes conditional order by current position.
+// ChangeConditionalOrder changes stop loss and take profit of current position.
 // It returns updated position.
 func (t *Tinkoff) ChangeConditionalOrder(
 	ctx context.Context,
