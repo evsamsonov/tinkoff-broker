@@ -11,3 +11,11 @@ lint:
 
 test:
 	GOARCH=amd64 go test -gcflags='-N -l' ./...
+
+doc:
+	docker run --rm \
+        -p 127.0.0.1:6060:6060 \
+        -v ${PWD}:/go/src/github.com/evsamsonov/tinkoff-broker \
+        -w /go/src/github.com/evsamsonov/tinkoff-broker \
+        golang:latest \
+        bash -c "go install golang.org/x/tools/cmd/godoc@latest && /go/bin/godoc -http=:6060"

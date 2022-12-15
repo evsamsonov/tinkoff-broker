@@ -1,4 +1,8 @@
-// https://tinkoff.github.io/investAPI/
+// Package tnkbroker implements [trengin.Broker] using [Tinkoff Invest API].
+// The implementation doesn't support multiple open positions at the same time.
+// Commission in position is approximate.
+//
+// [Tinkoff Invest API]: https://tinkoff.github.io/investAPI/
 package tnkbroker
 
 import (
@@ -27,59 +31,74 @@ var _ trengin.Broker = &Tinkoff{}
 
 const (
 	tinkoffHost                    = "invest-public-api.tinkoff.ru:443"
-	defaultProtectiveSpread        = 5
+	defaultProtectiveSpread        = 5 // In percent
 	defaultTradeStreamRetryTimeout = 1 * time.Minute
 	defaultTradeStreamPingTimeout  = 6 * time.Minute
 )
 
 type Tinkoff struct {
-	accountID               string
-	token                   string
-	appName                 string
-	orderClient             investapi.OrdersServiceClient
-	stopOrderClient         investapi.StopOrdersServiceClient
-	tradeStreamClient       investapi.OrdersStreamServiceClient
-	tradeStreamRetryTimeout time.Duration
-	tradeStreamPingTimeout  time.Duration
-	instrumentFIGI          string
-	instrument              *investapi.Instrument
-	protectiveSpread        float64
-	currentPosition         *currentPosition
-	logger                  *zap.Logger
+	accountID                   string
+	token                       string
+	appName                     string
+	orderClient                 investapi.OrdersServiceClient
+	stopOrderClient             investapi.StopOrdersServiceClient
+	tradeStreamClient           investapi.OrdersStreamServiceClient
+	tradeStreamRetryTimeout     time.Duration
+	tradeStreamPingWaitDuration time.Duration
+	instrumentFIGI              string
+	instrument                  *investapi.Instrument
+	protectiveSpread            float64
+	currentPosition             *currentPosition
+	logger                      *zap.Logger
 }
 
 type Option func(*Tinkoff)
 
+// WithLogger returns Option which sets logger. The default logger is no-op Logger
 func WithLogger(logger *zap.Logger) Option {
 	return func(t *Tinkoff) {
 		t.logger = logger
 	}
 }
 
+// WithAppName returns Option which sets [x-app-name]
+//
+// [x-app-name]: https://tinkoff.github.io/investAPI/grpc/#appname
 func WithAppName(appName string) Option {
 	return func(t *Tinkoff) {
 		t.appName = appName
 	}
 }
 
+// WithProtectiveSpread returns Option which sets protective spread
+// in percent for executing orders. The default value is 5%
 func WithProtectiveSpread(protectiveSpread float64) Option {
 	return func(t *Tinkoff) {
 		t.protectiveSpread = protectiveSpread
 	}
 }
 
+// WithTradeStreamRetryTimeout returns Option which defines retry timeout
+// on trade stream error
 func WithTradeStreamRetryTimeout(timeout time.Duration) Option {
 	return func(t *Tinkoff) {
 		t.tradeStreamRetryTimeout = timeout
 	}
 }
 
-func WithTradeStreamPingTimeout(timeout time.Duration) Option {
+// WithTradeStreamPingWaitDuration returns Option which defines duration
+// how long we wait for ping before reconnection
+func WithTradeStreamPingWaitDuration(duration time.Duration) Option {
 	return func(t *Tinkoff) {
-		t.tradeStreamPingTimeout = timeout
+		t.tradeStreamPingWaitDuration = duration
 	}
 }
 
+// New creates a new Tinkoff object. It requires to pass [full-access token],
+// user account identifier, [FIGI] of trading instrument.
+//
+// [full-access token]: https://tinkoff.github.io/investAPI/token/
+// [FIGI]: https://tinkoff.github.io/investAPI/faq_identification/
 func New(token, accountID, instrumentFIGI string, opts ...Option) (*Tinkoff, error) {
 	conn, err := grpc.Dial(
 		tinkoffHost,
@@ -95,17 +114,17 @@ func New(token, accountID, instrumentFIGI string, opts ...Option) (*Tinkoff, err
 	}
 
 	tinkoff := &Tinkoff{
-		accountID:               accountID,
-		token:                   token,
-		instrumentFIGI:          instrumentFIGI,
-		protectiveSpread:        defaultProtectiveSpread,
-		orderClient:             investapi.NewOrdersServiceClient(conn),
-		stopOrderClient:         investapi.NewStopOrdersServiceClient(conn),
-		tradeStreamClient:       investapi.NewOrdersStreamServiceClient(conn),
-		tradeStreamRetryTimeout: defaultTradeStreamRetryTimeout,
-		tradeStreamPingTimeout:  defaultTradeStreamPingTimeout,
-		currentPosition:         &currentPosition{},
-		logger:                  zap.NewNop(),
+		accountID:                   accountID,
+		token:                       token,
+		instrumentFIGI:              instrumentFIGI,
+		protectiveSpread:            defaultProtectiveSpread,
+		orderClient:                 investapi.NewOrdersServiceClient(conn),
+		stopOrderClient:             investapi.NewStopOrdersServiceClient(conn),
+		tradeStreamClient:           investapi.NewOrdersStreamServiceClient(conn),
+		tradeStreamRetryTimeout:     defaultTradeStreamRetryTimeout,
+		tradeStreamPingWaitDuration: defaultTradeStreamPingTimeout,
+		currentPosition:             &currentPosition{},
+		logger:                      zap.NewNop(),
 	}
 
 	ctx := tinkoff.ctxWithMetadata(context.Background())
@@ -125,6 +144,7 @@ func New(token, accountID, instrumentFIGI string, opts ...Option) (*Tinkoff, err
 	return tinkoff, nil
 }
 
+// Run starts to track an open position
 func (t *Tinkoff) Run(ctx context.Context) error {
 	for {
 		err := t.readTradesStream(ctx)
@@ -145,6 +165,7 @@ func (t *Tinkoff) Run(ctx context.Context) error {
 	}
 }
 
+// OpenPosition opens position, returns new position and channel for tracking position closing.
 func (t *Tinkoff) OpenPosition(
 	ctx context.Context,
 	action trengin.OpenPositionAction,
@@ -186,6 +207,8 @@ func (t *Tinkoff) OpenPosition(
 	return *position, positionClosed, nil
 }
 
+// ChangeConditionalOrder changes stop loss and take profit of current position.
+// It returns updated position.
 func (t *Tinkoff) ChangeConditionalOrder(
 	ctx context.Context,
 	action trengin.ChangeConditionalOrderAction,
@@ -232,6 +255,7 @@ func (t *Tinkoff) ChangeConditionalOrder(
 	return t.currentPosition.Position(), nil
 }
 
+// ClosePosition closes current position and returns closed position.
 func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionAction) (trengin.Position, error) {
 	if !t.currentPosition.Exist() {
 		return trengin.Position{}, fmt.Errorf("no open position")
@@ -279,7 +303,7 @@ func (t *Tinkoff) readTradesStream(ctx context.Context) error {
 				return nil
 			case <-heartbeat:
 				continue
-			case <-time.After(t.tradeStreamPingTimeout):
+			case <-time.After(t.tradeStreamPingWaitDuration):
 				cancel()
 				return fmt.Errorf("ping timed out")
 			}
