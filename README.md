@@ -9,14 +9,14 @@ An implementation of [trengin.Broker](http://github.com/evsamsonov/trengin) usin
 for creating automated trading robots. 
 
 ## Features
-- Opens position, changes stop loss and take profit, closes position
-- Tracks open position
-- Doesn't support multiple open positions at the same time
-- Commission in position is approximate
+- Opens position, changes stop loss and take profit, closes position.
+- Tracks open position.
+- Doesn't support multiple open positions at the same time.
+- Commission in position is approximate.
 
 ## How to use
 
-Create a new `Tinkoff` object using constructor `tnkbroker.New`. Pass [full-access token](https://tinkoff.github.io/investAPI/token/),
+Create a new `Tinkoff` object using constructor `New`. Pass [full-access token](https://tinkoff.github.io/investAPI/token/),
 user account identifier, [FIGI](https://tinkoff.github.io/investAPI/faq_identification/) of a trading instrument.
 
 ```go
