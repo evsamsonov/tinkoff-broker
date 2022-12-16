@@ -1,3 +1,22 @@
+/*
+Tinkoff-checkup checks all methods of Tinkoff Broker.
+It opens position, changes conditional orders, closes position.
+This can be useful for development, checking the ability
+to trade with a specific token, instrument and account.
+
+How to install:
+
+	go install github.com/evsamsonov/tinkoff-broker/cmd/tinkoff-checkup@latest
+
+Usage:
+
+	tinkoff-checkup [ACCOUNT_ID] [INSTRUMENT_FIGI] [flags]
+
+The flags are:
+
+	-v
+	    Print logger output
+*/
 package main
 
 import (
@@ -20,8 +39,8 @@ import (
 func main() {
 	if len(os.Args) < 3 {
 		fmt.Println(
-			"This command tests methods Tinkoff Broker implementations.\n" +
-				"It opens position, changes conditional order, closes position.",
+			"This command checks all methods of Tinkoff Broker.\n" +
+				"It opens position, changes conditional orders, closes position.",
 		)
 		fmt.Println("\nUsage: tinkoff-checkup [ACCOUNT_ID] [INSTRUMENT_FIGI] [-v]")
 		return
