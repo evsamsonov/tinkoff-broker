@@ -58,11 +58,13 @@ See more details in [trengin documentation](http://github.com/evsamsonov/trengin
 
 You can configure `Tinkoff` to use `Option`
 
-`WithLogger` returns Option which sets logger. The default logger is no-op Logger.\
-`WithAppName` returns Option which sets [x-app-name](https://tinkoff.github.io/investAPI/grpc/#appname).\
-`WithProtectiveSpread` returns Option which sets protective spread in percent for executing orders. The default value is 5%.\
-`WithTradeStreamRetryTimeout` returns Option which defines retry timeout on trade stream error.\
-`WithTradeStreamPingWaitDuration` returns Option which defines duration how long we wait for ping before reconnection.
+| Methods                           | Returns Option which                                                             |
+|-----------------------------------|----------------------------------------------------------------------------------|
+| `WithLogger`                      | Sets logger. The default logger is no-op Logger.                                 |
+| `WithAppName`                     | Sets [x-app-name](https://tinkoff.github.io/investAPI/grpc/#appname).            |
+| `WithProtectiveSpread`            | Sets protective spread in percent for executing orders. The default value is 5%. |
+| `WithTradeStreamRetryTimeout`     | Defines retry timeout on trade stream error.                                     |
+| `WithTradeStreamPingWaitDuration` | Defines duration how long we wait for ping before reconnection.                  |
 
 ## Checkup
 
@@ -77,7 +79,7 @@ go install github.com/evsamsonov/tinkoff-broker/cmd/tinkoff-checkup@latest
 ### How to use 
 
 ```bash
-tinkoff-checkup [ACCOUNT_ID] [INSTRUMENT_FIGI] [flags]
+tinkoff-checkup [ACCOUNT_ID] [INSTRUMENT_FIGI] [-v]
  ```
 
 | Flag | Description         |
