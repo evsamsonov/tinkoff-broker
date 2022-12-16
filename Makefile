@@ -1,6 +1,12 @@
-all: lint test
+.PHONY: help lint test doc
+.DEFAULT_GOAL := help
 
-lint:
+help:
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+
+pre-push: lint test ## Run golang lint and test
+
+lint: ## Run golang lint using docker
 	go mod download
 	docker run --rm \
 		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
@@ -9,10 +15,11 @@ lint:
 	    golangci/golangci-lint:v1.50 \
 	    golangci-lint run -v --modules-download-mode=readonly
 
-test:
+test: ## Run tests
 	GOARCH=amd64 go test -gcflags='-N -l' ./...
 
-doc:
+doc: ## Run doc server using docker
+	@echo "Doc server runs on http://127.0.0.1:6060"
 	docker run --rm \
         -p 127.0.0.1:6060:6060 \
         -v ${PWD}:/go/src/github.com/evsamsonov/tinkoff-broker \
