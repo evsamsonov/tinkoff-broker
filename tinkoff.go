@@ -94,7 +94,7 @@ func WithTradeStreamPingWaitDuration(duration time.Duration) Option {
 	}
 }
 
-// New creates a new Tinkoff object. It requires to pass [full-access token],
+// New creates a new Tinkoff object. It takes [full-access token],
 // user account identifier, [FIGI] of trading instrument.
 //
 // [full-access token]: https://tinkoff.github.io/investAPI/token/
