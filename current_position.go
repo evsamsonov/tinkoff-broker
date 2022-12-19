@@ -78,7 +78,9 @@ func (p *currentPosition) SetTakeProfitID(takeProfitID string) {
 func (p *currentPosition) AddCommission(commission float64) {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
-
+	if p.position == nil {
+		return
+	}
 	p.position.AddCommission(commission)
 }
 

@@ -278,7 +278,7 @@ func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionActi
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("close: %w", err)
 	}
-	position.AddCommission(commission.ToFloat())
+	t.currentPosition.AddCommission(commission.ToFloat())
 
 	t.logger.Info("Position was closed", zap.Any("position", position))
 	return position, nil
