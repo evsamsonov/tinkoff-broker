@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -50,6 +51,7 @@ type Tinkoff struct {
 	protectiveSpread            float64
 	currentPosition             *currentPosition
 	logger                      *zap.Logger
+	closePositionMtx            sync.Mutex
 }
 
 type Option func(*Tinkoff)
@@ -257,6 +259,9 @@ func (t *Tinkoff) ChangeConditionalOrder(
 
 // ClosePosition closes current position and returns closed position.
 func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionAction) (trengin.Position, error) {
+	t.closePositionMtx.Lock()
+	defer t.closePositionMtx.Unlock()
+
 	if !t.currentPosition.Exist() {
 		return trengin.Position{}, fmt.Errorf("no open position")
 	}
@@ -349,6 +354,9 @@ func (t *Tinkoff) readTradesStream(ctx context.Context) error {
 }
 
 func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi.OrderTrades) error {
+	t.closePositionMtx.Lock()
+	defer t.closePositionMtx.Unlock()
+
 	if !t.currentPosition.Exist() {
 		return nil
 	}
