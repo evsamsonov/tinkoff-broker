@@ -532,20 +532,19 @@ func (t *Tinkoff) cancelStopOrder(ctx context.Context, id string) error {
 		AccountId:   t.accountID,
 		StopOrderId: id,
 	}
+	loggerWithRequest := t.logger.With(zap.Any("cancelStopOrderRequest", cancelStopOrderRequest))
+
 	_, err := t.stopOrderClient.CancelStopOrder(ctx, cancelStopOrderRequest)
+	if status.Code(err) == codes.NotFound {
+		loggerWithRequest.Warn("Stop order is not found", zap.Error(err))
+		return nil
+	}
 	if err != nil {
-		t.logger.Error(
-			"Failed to cancel stop order",
-			zap.Error(err),
-			zap.Any("cancelStopOrderRequest", cancelStopOrderRequest),
-		)
+		t.logger.Error("Failed to cancel stop order", zap.Error(err))
 		return fmt.Errorf("cancel stop order: %w", err)
 	}
 
-	t.logger.Info(
-		"Stop order was canceled",
-		zap.String("id", id),
-	)
+	t.logger.Info("Stop order was canceled", zap.String("id", id))
 	return nil
 }
 
