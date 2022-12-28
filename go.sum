@@ -13,6 +13,8 @@ github.com/evsamsonov/trengin v1.0.1-0.20221105110708-cd38388945a6 h1:A43t7QJhty
 github.com/evsamsonov/trengin v1.0.1-0.20221105110708-cd38388945a6/go.mod h1:c+720AnFFlVZFL13J4JoFUwbSRo3lAVtRyLO/2RMIR8=
 github.com/evsamsonov/trengin v1.0.1-0.20221120125306-b0921dc3567a h1:0CekuRCMugWIErChF1nhfFyS6SrJPliE/yWbbAEyJks=
 github.com/evsamsonov/trengin v1.0.1-0.20221120125306-b0921dc3567a/go.mod h1:c+720AnFFlVZFL13J4JoFUwbSRo3lAVtRyLO/2RMIR8=
+github.com/evsamsonov/trengin v1.0.1-0.20221228164756-cd6e5195230a h1:eTmT3FM+3UKQPDmfgCyYp3ruvrg7YLP5VvTflazP1Uk=
+github.com/evsamsonov/trengin v1.0.1-0.20221228164756-cd6e5195230a/go.mod h1:c+720AnFFlVZFL13J4JoFUwbSRo3lAVtRyLO/2RMIR8=
 github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b/go.mod h1:SBH7ygxi8pfUlaOkMMuAQtPIUF8ecWP5IEl/CR7VP2Q=
 github.com/golang/mock v1.1.1/go.mod h1:oTYuIxOrZwtPieC+H1uAHpcLFnEyAGVDL/k47Jfbm0A=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
