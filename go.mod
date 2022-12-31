@@ -3,7 +3,7 @@ module github.com/evsamsonov/tinkoff-broker
 go 1.19
 
 require (
-	github.com/evsamsonov/trengin v1.0.1-0.20221120125306-b0921dc3567a
+	github.com/evsamsonov/trengin v1.0.1-0.20221231160942-a459011d1513
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.8.1
 	github.com/tinkoff/invest-api-go-sdk v1.0.2
