@@ -32,7 +32,7 @@ var _ trengin.Broker = &Tinkoff{}
 
 const (
 	tinkoffHost                    = "invest-public-api.tinkoff.ru:443"
-	defaultProtectiveSpread        = 1 // In percent
+	defaultProtectiveSpread        = 2 // In percent
 	defaultTradeStreamRetryTimeout = 1 * time.Minute
 	defaultTradeStreamPingTimeout  = 6 * time.Minute
 )
@@ -74,7 +74,7 @@ func WithAppName(appName string) Option {
 }
 
 // WithProtectiveSpread returns Option which sets protective spread
-// in percent for executing orders. The default value is 1%
+// in percent for executing orders. The default value is 2%
 func WithProtectiveSpread(protectiveSpread float64) Option {
 	return func(t *Tinkoff) {
 		t.protectiveSpread = protectiveSpread

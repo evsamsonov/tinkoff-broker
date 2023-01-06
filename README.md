@@ -62,7 +62,7 @@ You can configure `Tinkoff` to use `Option`
 |-----------------------------------|----------------------------------------------------------------------------------|
 | `WithLogger`                      | Sets logger. The default logger is no-op Logger.                                 |
 | `WithAppName`                     | Sets [x-app-name](https://tinkoff.github.io/investAPI/grpc/#appname).            |
-| `WithProtectiveSpread`            | Sets protective spread in percent for executing orders. The default value is 5%. |
+| `WithProtectiveSpread`            | Sets protective spread in percent for executing orders. The default value is 2%. |
 | `WithTradeStreamRetryTimeout`     | Defines retry timeout on trade stream error.                                     |
 | `WithTradeStreamPingWaitDuration` | Defines duration how long we wait for ping before reconnection.                  |
 
