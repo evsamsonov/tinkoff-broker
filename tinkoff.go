@@ -32,7 +32,7 @@ var _ trengin.Broker = &Tinkoff{}
 
 const (
 	tinkoffHost                    = "invest-public-api.tinkoff.ru:443"
-	defaultProtectiveSpread        = 5 // In percent
+	defaultProtectiveSpread        = 1 // In percent
 	defaultTradeStreamRetryTimeout = 1 * time.Minute
 	defaultTradeStreamPingTimeout  = 6 * time.Minute
 )
@@ -44,6 +44,7 @@ type Tinkoff struct {
 	orderClient                 investapi.OrdersServiceClient
 	stopOrderClient             investapi.StopOrdersServiceClient
 	tradeStreamClient           investapi.OrdersStreamServiceClient
+	marketDataClient            investapi.MarketDataServiceClient
 	tradeStreamRetryTimeout     time.Duration
 	tradeStreamPingWaitDuration time.Duration
 	instrumentFIGI              string
@@ -73,7 +74,7 @@ func WithAppName(appName string) Option {
 }
 
 // WithProtectiveSpread returns Option which sets protective spread
-// in percent for executing orders. The default value is 5%
+// in percent for executing orders. The default value is 1%
 func WithProtectiveSpread(protectiveSpread float64) Option {
 	return func(t *Tinkoff) {
 		t.protectiveSpread = protectiveSpread
@@ -123,6 +124,7 @@ func New(token, accountID, instrumentFIGI string, opts ...Option) (*Tinkoff, err
 		orderClient:                 investapi.NewOrdersServiceClient(conn),
 		stopOrderClient:             investapi.NewStopOrdersServiceClient(conn),
 		tradeStreamClient:           investapi.NewOrdersStreamServiceClient(conn),
+		marketDataClient:            investapi.NewMarketDataServiceClient(conn),
 		tradeStreamRetryTimeout:     defaultTradeStreamRetryTimeout,
 		tradeStreamPingWaitDuration: defaultTradeStreamPingTimeout,
 		currentPosition:             &currentPosition{},
@@ -431,12 +433,17 @@ func (t *Tinkoff) openMarketOrder(
 	if positionType.IsShort() {
 		direction = investapi.OrderDirection_ORDER_DIRECTION_SELL
 	}
+	price, err := t.getLastPrice(ctx, t.instrumentFIGI)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get last price: %w", err)
+	}
 	orderRequest := &investapi.PostOrderRequest{
 		Figi:      t.instrumentFIGI,
 		Quantity:  quantity,
 		Direction: direction,
 		AccountId: t.accountID,
-		OrderType: investapi.OrderType_ORDER_TYPE_MARKET,
+		Price:     t.addProtectedSpread(positionType.Inverse(), price),
+		OrderType: investapi.OrderType_ORDER_TYPE_LIMIT,
 		OrderId:   uuid.New().String(),
 	}
 
@@ -446,14 +453,16 @@ func (t *Tinkoff) openMarketOrder(
 		return nil, nil, fmt.Errorf("post order: %w", err)
 	}
 
-	if order.ExecutionReportStatus != investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL {
-		t.logger.Error("Order execution status is not fill", zap.Any("orderRequest", orderRequest))
-		return nil, nil, errors.New("order execution status is not fill")
+	orderState, err := t.getExecutedOrderState(ctx, order.OrderId)
+	if err != nil {
+		return nil, nil, fmt.Errorf("wait fill order state: %w", err)
 	}
+	t.logger.Debug("Fill order state with was received", zap.Any("orderState", orderState))
+
 	commission := t.orderCommission(ctx, order.OrderId)
 
 	t.logger.Info("Order was executed", zap.Any("orderRequest", orderRequest), zap.Any("order", order))
-	return NewMoneyValue(order.ExecutedOrderPrice), commission, nil
+	return NewMoneyValue(orderState.ExecutedOrderPrice), commission, nil
 }
 
 type stopOrderType int
@@ -489,7 +498,7 @@ func (t *Tinkoff) setStopOrder(
 	if position.Type.IsLong() {
 		stopOrderDirection = investapi.StopOrderDirection_STOP_ORDER_DIRECTION_SELL
 	}
-	reqStopOrderType := investapi.StopOrderType_STOP_ORDER_TYPE_STOP_LOSS
+	reqStopOrderType := investapi.StopOrderType_STOP_ORDER_TYPE_STOP_LIMIT
 	if orderType == takeProfitStopOrderType {
 		reqStopOrderType = investapi.StopOrderType_STOP_ORDER_TYPE_TAKE_PROFIT
 	}
@@ -629,4 +638,56 @@ func (t *Tinkoff) orderCommission(ctx context.Context, orderID string) *MoneyVal
 	t.logger.Info("Order state was received", zap.Any("orderState", orderState))
 
 	return NewMoneyValue(orderState.InitialCommission)
+}
+
+func (t *Tinkoff) getLastPrice(ctx context.Context, figi string) (*investapi.Quotation, error) {
+	prices, err := t.marketDataClient.GetLastPrices(ctx, &investapi.GetLastPricesRequest{
+		Figi: []string{figi},
+	})
+	if err != nil {
+		t.logger.Error("Failed to get last prices", zap.Error(err), zap.Any("figi", t.instrumentFIGI))
+		return nil, fmt.Errorf("last prices: %w", err)
+	}
+	t.logger.Debug("Last prices were received", zap.Any("prices", prices))
+
+	for _, p := range prices.GetLastPrices() {
+		if p.Figi == t.instrumentFIGI {
+			return p.Price, nil
+		}
+	}
+	return nil, errors.New("figi not found")
+}
+
+func (t *Tinkoff) getExecutedOrderState(
+	ctx context.Context,
+	orderId string,
+) (orderState *investapi.OrderState, err error) {
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	for {
+		orderState, err = t.getOrderState(ctx, orderId)
+		if orderState.GetExecutionReportStatus() == investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL {
+			break
+		}
+		<-time.After(250 * time.Millisecond)
+	}
+	return orderState, nil
+}
+
+func (t *Tinkoff) getOrderState(ctx context.Context, orderId string) (orderState *investapi.OrderState, err error) {
+	orderStateRequest := &investapi.GetOrderStateRequest{
+		AccountId: t.accountID,
+		OrderId:   orderId,
+	}
+	orderState, err = t.orderClient.GetOrderState(ctx, orderStateRequest)
+	if err != nil {
+		t.logger.Error(
+			"Failed to get order state",
+			zap.Error(err),
+			zap.Any("orderStateRequest", orderStateRequest),
+		)
+		return nil, fmt.Errorf("get order state: %w", err)
+	}
+	return orderState, nil
 }
