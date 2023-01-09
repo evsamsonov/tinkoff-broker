@@ -457,12 +457,12 @@ func (t *Tinkoff) openMarketOrder(
 	if err != nil {
 		return nil, nil, fmt.Errorf("wait fill order state: %w", err)
 	}
-	t.logger.Debug("Fill order state with was received", zap.Any("orderState", orderState))
-
-	commission := t.orderCommission(ctx, order.OrderId)
-
-	t.logger.Info("Order was executed", zap.Any("orderRequest", orderRequest), zap.Any("order", order))
-	return NewMoneyValue(orderState.ExecutedOrderPrice), commission, nil
+	t.logger.Info("Order was executed",
+		zap.Any("orderRequest", orderRequest),
+		zap.Any("order", order),
+		zap.Any("orderState", orderState),
+	)
+	return NewMoneyValue(orderState.AveragePositionPrice), NewMoneyValue(orderState.InitialCommission), nil
 }
 
 type stopOrderType int
