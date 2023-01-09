@@ -32,7 +32,7 @@ var _ trengin.Broker = &Tinkoff{}
 
 const (
 	tinkoffHost                    = "invest-public-api.tinkoff.ru:443"
-	defaultProtectiveSpread        = 2 // In percent
+	defaultProtectiveSpread        = 1 // In percent
 	defaultTradeStreamRetryTimeout = 1 * time.Minute
 	defaultTradeStreamPingTimeout  = 6 * time.Minute
 )
