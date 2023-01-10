@@ -74,7 +74,7 @@ func WithAppName(appName string) Option {
 }
 
 // WithProtectiveSpread returns Option which sets protective spread
-// in percent for executing orders. The default value is 2%
+// in percent for executing orders. The default value is 1%
 func WithProtectiveSpread(protectiveSpread float64) Option {
 	return func(t *Tinkoff) {
 		t.protectiveSpread = protectiveSpread
