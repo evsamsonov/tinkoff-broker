@@ -48,20 +48,11 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				orderDirection:     investapi.OrderDirection_ORDER_DIRECTION_BUY,
 				stopOrderDirection: investapi.StopOrderDirection_STOP_ORDER_DIRECTION_SELL,
 				positionType:       trengin.Long,
-				openPrice: &investapi.MoneyValue{
-					Units: 148,
-					Nano:  0.2 * 10e8,
-				},
-				stopLoss: &investapi.Quotation{
-					Units: 136,
-					Nano:  0.7 * 10e8,
-				},
-				takeProfit: &investapi.Quotation{
-					Units: 168,
-					Nano:  0.3 * 10e8,
-				},
-				stopLossID:   "123",
-				takeProfitID: "321",
+				openPrice:          &investapi.MoneyValue{Units: 148, Nano: 0.2 * 10e8},
+				stopLoss:           &investapi.Quotation{Units: 136, Nano: 0.7 * 10e8},
+				takeProfit:         &investapi.Quotation{Units: 168, Nano: 0.3 * 10e8},
+				stopLossID:         "123",
+				takeProfitID:       "321",
 			},
 		},
 		{
@@ -76,20 +67,11 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				orderDirection:     investapi.OrderDirection_ORDER_DIRECTION_SELL,
 				stopOrderDirection: investapi.StopOrderDirection_STOP_ORDER_DIRECTION_BUY,
 				positionType:       trengin.Short,
-				openPrice: &investapi.MoneyValue{
-					Units: 148,
-					Nano:  0.2 * 10e8,
-				},
-				stopLoss: &investapi.Quotation{
-					Units: 159,
-					Nano:  0.7 * 10e8,
-				},
-				takeProfit: &investapi.Quotation{
-					Units: 128,
-					Nano:  0.1 * 10e8,
-				},
-				stopLossID:   "123",
-				takeProfitID: "321",
+				openPrice:          &investapi.MoneyValue{Units: 148, Nano: 0.2 * 10e8},
+				stopLoss:           &investapi.Quotation{Units: 159, Nano: 0.7 * 10e8},
+				takeProfit:         &investapi.Quotation{Units: 128, Nano: 0.1 * 10e8},
+				stopLossID:         "123",
+				takeProfitID:       "321",
 			},
 		},
 		{
@@ -104,14 +86,11 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				orderDirection:     investapi.OrderDirection_ORDER_DIRECTION_BUY,
 				stopOrderDirection: investapi.StopOrderDirection_STOP_ORDER_DIRECTION_SELL,
 				positionType:       trengin.Long,
-				openPrice: &investapi.MoneyValue{
-					Units: 148,
-					Nano:  0.2 * 10e8,
-				},
-				stopLoss:     &investapi.Quotation{},
-				takeProfit:   &investapi.Quotation{},
-				stopLossID:   "",
-				takeProfitID: "",
+				openPrice:          &investapi.MoneyValue{Units: 148, Nano: 0.2 * 10e8},
+				stopLoss:           &investapi.Quotation{},
+				takeProfit:         &investapi.Quotation{},
+				stopLossID:         "",
+				takeProfitID:       "",
 			},
 		},
 	}
@@ -120,6 +99,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ordersServiceClient := &mockOrdersServiceClient{}
 			stopOrdersServiceClient := &mockStopOrdersServiceClient{}
+			marketDataServiceClient := &mockMarketDataServiceClient{}
 
 			patch, err := mpatch.PatchMethod(uuid.New, func() uuid.UUID {
 				return uuid.MustParse("8942e9ae-e4e1-11ec-8fea-0242ac120002")
@@ -128,26 +108,34 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 			assert.NoError(t, err)
 
 			tinkoff := &Tinkoff{
-				accountID:       "123",
-				orderClient:     ordersServiceClient,
-				stopOrderClient: stopOrdersServiceClient,
-				instrumentFIGI:  "FUTSBRF06220",
+				accountID:        "123",
+				orderClient:      ordersServiceClient,
+				stopOrderClient:  stopOrdersServiceClient,
+				marketDataClient: marketDataServiceClient,
+				instrumentFIGI:   "FUTSBRF06220",
 				instrument: &investapi.Instrument{
-					MinPriceIncrement: &investapi.Quotation{
-						Units: 0,
-						Nano:  0.1 * 10e8,
-					},
+					MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.1 * 10e8},
 				},
 				currentPosition: &currentPosition{},
 				logger:          zap.NewNop(),
 			}
 
+			marketDataServiceClient.On("GetLastPrices", mock.Anything, &investapi.GetLastPricesRequest{
+				Figi: []string{"FUTSBRF06220"},
+			}).Return(&investapi.GetLastPricesResponse{
+				LastPrices: []*investapi.LastPrice{{
+					Figi:  "FUTSBRF06220",
+					Price: &investapi.Quotation{Units: 100},
+				}},
+			}, nil)
+
 			ordersServiceClient.On("PostOrder", mock.Anything, &investapi.PostOrderRequest{
 				Figi:      "FUTSBRF06220",
 				Quantity:  2,
+				Price:     &investapi.Quotation{Units: 100},
 				Direction: tt.want.orderDirection,
 				AccountId: "123",
-				OrderType: investapi.OrderType_ORDER_TYPE_MARKET,
+				OrderType: investapi.OrderType_ORDER_TYPE_LIMIT,
 				OrderId:   "8942e9ae-e4e1-11ec-8fea-0242ac120002",
 			}).Return(&investapi.PostOrderResponse{
 				ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
@@ -159,10 +147,9 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				AccountId: "123",
 				OrderId:   "1953",
 			}).Return(&investapi.OrderState{
-				InitialCommission: &investapi.MoneyValue{
-					Units: 12,
-					Nano:  0.1 * 10e8,
-				},
+				InitialCommission:     &investapi.MoneyValue{Units: 12, Nano: 0.1 * 10e8},
+				ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
+				AveragePositionPrice:  tt.want.openPrice,
 			}, nil)
 
 			if tt.openPositionAction.StopLossIndent != 0 {
@@ -174,7 +161,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 					Direction:      tt.want.stopOrderDirection,
 					AccountId:      "123",
 					ExpirationType: investapi.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
-					StopOrderType:  investapi.StopOrderType_STOP_ORDER_TYPE_STOP_LOSS,
+					StopOrderType:  investapi.StopOrderType_STOP_ORDER_TYPE_STOP_LIMIT,
 				}).Return(&investapi.PostStopOrderResponse{
 					StopOrderId: "123",
 				}, nil).Once()
@@ -267,14 +254,8 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 			},
 			positionType: trengin.Long,
 			want: testWant{
-				stopLoss: &investapi.Quotation{
-					Units: 123,
-					Nano:  0.43 * 10e8,
-				},
-				takeProfit: &investapi.Quotation{
-					Units: 156,
-					Nano:  0.31 * 10e8,
-				},
+				stopLoss:           &investapi.Quotation{Units: 123, Nano: 0.43 * 10e8},
+				takeProfit:         &investapi.Quotation{Units: 156, Nano: 0.31 * 10e8},
 				stopOrderDirection: investapi.StopOrderDirection_STOP_ORDER_DIRECTION_SELL,
 				stopLossID:         "2",
 				takeProfitID:       "4",
@@ -323,7 +304,7 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 					Direction:      tt.want.stopOrderDirection,
 					AccountId:      "123",
 					ExpirationType: investapi.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
-					StopOrderType:  investapi.StopOrderType_STOP_ORDER_TYPE_STOP_LOSS,
+					StopOrderType:  investapi.StopOrderType_STOP_ORDER_TYPE_STOP_LIMIT,
 				}).Return(&investapi.PostStopOrderResponse{
 					StopOrderId: "2",
 				}, nil).Once()
@@ -385,9 +366,6 @@ func TestTinkoff_ClosePosition_noOpenPosition(t *testing.T) {
 }
 
 func TestTinkoff_ClosePosition(t *testing.T) {
-	ordersServiceClient := &mockOrdersServiceClient{}
-	stopOrdersServiceClient := &mockStopOrdersServiceClient{}
-
 	tests := []struct {
 		name               string
 		positionType       trengin.PositionType
@@ -398,24 +376,22 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 			name:               "long",
 			positionType:       trengin.Long,
 			wantOrderDirection: investapi.OrderDirection_ORDER_DIRECTION_SELL,
-			wantClosePrice: &investapi.MoneyValue{
-				Units: 148,
-				Nano:  0.2 * 10e8,
-			},
+			wantClosePrice:     &investapi.MoneyValue{Units: 148, Nano: 0.2 * 10e8},
 		},
 		{
 			name:               "short",
 			positionType:       trengin.Short,
 			wantOrderDirection: investapi.OrderDirection_ORDER_DIRECTION_BUY,
-			wantClosePrice: &investapi.MoneyValue{
-				Units: 256,
-				Nano:  0.3 * 10e8,
-			},
+			wantClosePrice:     &investapi.MoneyValue{Units: 256, Nano: 0.3 * 10e8},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			ordersServiceClient := &mockOrdersServiceClient{}
+			stopOrdersServiceClient := &mockStopOrdersServiceClient{}
+			marketDataServiceClient := &mockMarketDataServiceClient{}
+
 			patch, err := mpatch.PatchMethod(uuid.New, func() uuid.UUID {
 				return uuid.MustParse("8942e9ae-e4e1-11ec-8fea-0242ac120002")
 			})
@@ -429,15 +405,13 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 			)
 			assert.NoError(t, err)
 			tinkoff := &Tinkoff{
-				accountID:       "123",
-				orderClient:     ordersServiceClient,
-				stopOrderClient: stopOrdersServiceClient,
-				instrumentFIGI:  "FUTSBRF06220",
+				accountID:        "123",
+				orderClient:      ordersServiceClient,
+				stopOrderClient:  stopOrdersServiceClient,
+				marketDataClient: marketDataServiceClient,
+				instrumentFIGI:   "FUTSBRF06220",
 				instrument: &investapi.Instrument{
-					MinPriceIncrement: &investapi.Quotation{
-						Units: 0,
-						Nano:  0.01 * 10e8,
-					},
+					MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
 				},
 				currentPosition: &currentPosition{
 					position:     pos,
@@ -463,22 +437,31 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 				Quantity:  2,
 				Direction: tt.wantOrderDirection,
 				AccountId: "123",
-				OrderType: investapi.OrderType_ORDER_TYPE_MARKET,
+				OrderType: investapi.OrderType_ORDER_TYPE_LIMIT,
 				OrderId:   "8942e9ae-e4e1-11ec-8fea-0242ac120002",
+				Price:     &investapi.Quotation{Units: 100},
 			}).Return(&investapi.PostOrderResponse{
 				ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
 				ExecutedOrderPrice:    tt.wantClosePrice,
 				OrderId:               "1953",
 			}, nil)
 
+			marketDataServiceClient.On("GetLastPrices", mock.Anything, &investapi.GetLastPricesRequest{
+				Figi: []string{"FUTSBRF06220"},
+			}).Return(&investapi.GetLastPricesResponse{
+				LastPrices: []*investapi.LastPrice{{
+					Figi:  "FUTSBRF06220",
+					Price: &investapi.Quotation{Units: 100},
+				}},
+			}, nil)
+
 			ordersServiceClient.On("GetOrderState", mock.Anything, &investapi.GetOrderStateRequest{
 				AccountId: "123",
 				OrderId:   "1953",
 			}).Return(&investapi.OrderState{
-				InitialCommission: &investapi.MoneyValue{
-					Units: 12,
-					Nano:  0.1 * 10e8,
-				},
+				InitialCommission:     &investapi.MoneyValue{Units: 12, Nano: 0.1 * 10e8},
+				ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
+				AveragePositionPrice:  tt.wantClosePrice,
 			}, nil)
 
 			position, err := tinkoff.ClosePosition(context.Background(), trengin.ClosePositionAction{})
