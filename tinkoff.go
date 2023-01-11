@@ -660,13 +660,13 @@ func (t *Tinkoff) getLastPrice(ctx context.Context, figi string) (*investapi.Quo
 
 func (t *Tinkoff) getExecutedOrderState(
 	ctx context.Context,
-	orderId string,
+	orderID string,
 ) (orderState *investapi.OrderState, err error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	for {
-		orderState, err = t.getOrderState(ctx, orderId)
+		orderState, err = t.getOrderState(ctx, orderID)
 		isFilled := orderState.GetExecutionReportStatus() == investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL
 		isNotEmptyPrice := NewMoneyValue(orderState.AveragePositionPrice).ToFloat() > 0
 		if isFilled && isNotEmptyPrice {
@@ -681,10 +681,10 @@ func (t *Tinkoff) getExecutedOrderState(
 	return orderState, nil
 }
 
-func (t *Tinkoff) getOrderState(ctx context.Context, orderId string) (orderState *investapi.OrderState, err error) {
+func (t *Tinkoff) getOrderState(ctx context.Context, orderID string) (orderState *investapi.OrderState, err error) {
 	orderStateRequest := &investapi.GetOrderStateRequest{
 		AccountId: t.accountID,
-		OrderId:   orderId,
+		OrderId:   orderID,
 	}
 	orderState, err = t.orderClient.GetOrderState(ctx, orderStateRequest)
 	if err != nil {
