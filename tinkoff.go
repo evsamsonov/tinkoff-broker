@@ -667,6 +667,7 @@ func (t *Tinkoff) getExecutedOrderState(
 
 	for {
 		orderState, err = t.getOrderState(ctx, orderID)
+		//nolint: lll
 		isFullFilled := orderState.GetExecutionReportStatus() == investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL &&
 			orderState.LotsExecuted == orderState.LotsRequested
 		if isFullFilled {
