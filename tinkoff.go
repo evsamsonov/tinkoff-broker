@@ -667,9 +667,9 @@ func (t *Tinkoff) getExecutedOrderState(
 
 	for {
 		orderState, err = t.getOrderState(ctx, orderID)
-		isFilled := orderState.GetExecutionReportStatus() == investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL
-		isNotEmptyPrice := NewMoneyValue(orderState.AveragePositionPrice).ToFloat() > 0
-		if isFilled && isNotEmptyPrice {
+		isFullFilled := orderState.GetExecutionReportStatus() == investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL &&
+			orderState.LotsExecuted == orderState.LotsRequested
+		if isFullFilled {
 			break
 		}
 		select {
