@@ -22,3 +22,10 @@ type stopOrdersServiceClient interface {
 type marketDataServiceClient interface {
 	investapi.MarketDataServiceClient
 }
+
+// nolint: lll,unused
+//
+//go:generate docker run --rm -v ${PWD}:/app -w /app vektra/mockery --name instrumentServiceClient --inpackage --case snake
+type instrumentServiceClient interface {
+	investapi.InstrumentsServiceClient
+}

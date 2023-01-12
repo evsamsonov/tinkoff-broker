@@ -143,7 +143,6 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 	tinkoffBroker, err := tnkbroker.New(
 		params.tinkoffToken,
 		params.accountID,
-		params.instrumentFIGI,
 		tnkbroker.WithLogger(t.logger),
 	)
 	if err != nil {
@@ -170,6 +169,7 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 
 		openPositionAction := trengin.OpenPositionAction{
 			Type:             params.positionType,
+			FIGI:             params.instrumentFIGI,
 			Quantity:         1,
 			StopLossIndent:   params.stopLossIndent,
 			TakeProfitIndent: params.takeProfitIndent,
