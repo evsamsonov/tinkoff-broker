@@ -39,6 +39,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 		{
 			name: "long with stop loss and take profit",
 			openPositionAction: trengin.OpenPositionAction{
+				FIGI:             "FUTSBRF06220",
 				Type:             trengin.Long,
 				Quantity:         2,
 				StopLossIndent:   11.5,
@@ -58,6 +59,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 		{
 			name: "short with stop loss and take profit",
 			openPositionAction: trengin.OpenPositionAction{
+				FIGI:             "FUTSBRF06220",
 				Type:             trengin.Short,
 				Quantity:         2,
 				StopLossIndent:   11.5,
@@ -77,6 +79,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 		{
 			name: "without stop loss and take profit",
 			openPositionAction: trengin.OpenPositionAction{
+				FIGI:             "FUTSBRF06220",
 				Type:             trengin.Long,
 				Quantity:         2,
 				StopLossIndent:   0.0,
@@ -100,6 +103,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 			ordersServiceClient := &mockOrdersServiceClient{}
 			stopOrdersServiceClient := &mockStopOrdersServiceClient{}
 			marketDataServiceClient := &mockMarketDataServiceClient{}
+			instrumentServiceClient := &mockInstrumentServiceClient{}
 
 			patch, err := mpatch.PatchMethod(uuid.New, func() uuid.UUID {
 				return uuid.MustParse("8942e9ae-e4e1-11ec-8fea-0242ac120002")
@@ -112,13 +116,20 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				orderClient:      ordersServiceClient,
 				stopOrderClient:  stopOrdersServiceClient,
 				marketDataClient: marketDataServiceClient,
-				instrumentFIGI:   "FUTSBRF06220",
-				instrument: &investapi.Instrument{
+				instrumentClient: instrumentServiceClient,
+				currentPosition:  &currentPosition{},
+				logger:           zap.NewNop(),
+			}
+
+			instrumentServiceClient.On("GetInstrumentBy", mock.Anything, &investapi.InstrumentRequest{
+				IdType: investapi.InstrumentIdType_INSTRUMENT_ID_TYPE_FIGI,
+				Id:     "FUTSBRF06220",
+			}).Return(&investapi.InstrumentResponse{
+				Instrument: &investapi.Instrument{
+					Figi:              "FUTSBRF06220",
 					MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.1 * 10e8},
 				},
-				currentPosition: &currentPosition{},
-				logger:          zap.NewNop(),
-			}
+			}, nil)
 
 			marketDataServiceClient.On("GetLastPrices", mock.Anything, &investapi.GetLastPricesRequest{
 				Figi: []string{"FUTSBRF06220"},
@@ -267,28 +278,34 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ordersServiceClient := &mockOrdersServiceClient{}
 			stopOrdersServiceClient := &mockStopOrdersServiceClient{}
+			instrumentServiceClient := &mockInstrumentServiceClient{}
 
 			tinkoff := &Tinkoff{
-				accountID:       "123",
-				orderClient:     ordersServiceClient,
-				stopOrderClient: stopOrdersServiceClient,
-				instrumentFIGI:  "FUTSBRF06220",
-				instrument: &investapi.Instrument{
-					MinPriceIncrement: &investapi.Quotation{
-						Units: 0,
-						Nano:  0.01 * 10e8,
-					},
-				},
+				accountID:        "123",
+				orderClient:      ordersServiceClient,
+				stopOrderClient:  stopOrdersServiceClient,
+				instrumentClient: instrumentServiceClient,
 				currentPosition: &currentPosition{
-					position: &trengin.Position{
-						Type:     tt.positionType,
-						Quantity: 2,
-					},
+					position:     &trengin.Position{Type: tt.positionType, Quantity: 2, FIGI: "FUTSBRF06220"},
 					stopLossID:   "1",
 					takeProfitID: "3",
+					instrument: &investapi.Instrument{
+						Figi:              "FUTSBRF06220",
+						MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
+					},
 				},
 				logger: zap.NewNop(),
 			}
+
+			instrumentServiceClient.On("GetInstrumentBy", mock.Anything, &investapi.InstrumentRequest{
+				IdType: investapi.InstrumentIdType_INSTRUMENT_ID_TYPE_FIGI,
+				Id:     "FUTSBRF06220",
+			}).Return(&investapi.InstrumentResponse{
+				Instrument: &investapi.Instrument{
+					Figi:              "FUTSBRF06220",
+					MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.1 * 10e8},
+				},
+			}, nil)
 
 			if tt.changeConditionOrderAction.StopLoss != 0 {
 				stopOrdersServiceClient.On("CancelStopOrder", mock.Anything, &investapi.CancelStopOrderRequest{
@@ -391,6 +408,7 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 			ordersServiceClient := &mockOrdersServiceClient{}
 			stopOrdersServiceClient := &mockStopOrdersServiceClient{}
 			marketDataServiceClient := &mockMarketDataServiceClient{}
+			instrumentServiceClient := &mockInstrumentServiceClient{}
 
 			patch, err := mpatch.PatchMethod(uuid.New, func() uuid.UUID {
 				return uuid.MustParse("8942e9ae-e4e1-11ec-8fea-0242ac120002")
@@ -399,7 +417,7 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 			assert.NoError(t, err)
 
 			pos, err := trengin.NewPosition(
-				trengin.NewOpenPositionAction(tt.positionType, 2, 0, 0),
+				trengin.NewOpenPositionAction("FUTSBRF06220", tt.positionType, 2, 0, 0),
 				time.Now(),
 				150,
 			)
@@ -409,11 +427,12 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 				orderClient:      ordersServiceClient,
 				stopOrderClient:  stopOrdersServiceClient,
 				marketDataClient: marketDataServiceClient,
-				instrumentFIGI:   "FUTSBRF06220",
-				instrument: &investapi.Instrument{
-					MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
-				},
+				instrumentClient: instrumentServiceClient,
 				currentPosition: &currentPosition{
+					instrument: &investapi.Instrument{
+						Figi:              "FUTSBRF06220",
+						MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
+					},
 					position:     pos,
 					stopLossID:   "1",
 					takeProfitID: "3",
@@ -570,18 +589,14 @@ func TestTinkoff_stopLossPriceByOpen(t *testing.T) {
 		},
 	}
 
-	tinkoff := Tinkoff{
-		instrument: &investapi.Instrument{
-			MinPriceIncrement: &investapi.Quotation{
-				Nano: 1000000,
-			},
-		},
-	}
+	tinkoff := Tinkoff{}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			openPrice := NewMoneyValue(tt.openPrice)
-			quotation := tinkoff.stopLossPriceByOpen(openPrice, tt.action)
+			quotation := tinkoff.stopLossPriceByOpen(openPrice, tt.action, &investapi.Quotation{
+				Nano: 1000000,
+			})
 			assert.Equal(t, tt.want, quotation)
 		})
 	}
@@ -593,7 +608,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 
 	closed := make(chan trengin.Position, 1)
 	pos, err := trengin.NewPosition(
-		trengin.NewOpenPositionAction(trengin.Long, 4, 0, 0),
+		trengin.NewOpenPositionAction("FUTSBRF06220", trengin.Long, 4, 0, 0),
 		time.Now(),
 		150,
 	)
@@ -627,19 +642,15 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 		accountID:       "123",
 		orderClient:     ordersServiceClient,
 		stopOrderClient: stopOrdersServiceClient,
-		instrumentFIGI:  "FUTSBRF06220",
-		instrument: &investapi.Instrument{
-			MinPriceIncrement: &investapi.Quotation{
-				Units: 0,
-				Nano:  0.01 * 10e8,
-			},
-			Lot: 1,
-		},
 		currentPosition: &currentPosition{
 			position:     pos,
 			stopLossID:   "1",
 			takeProfitID: "3",
 			closed:       closed,
+			instrument: &investapi.Instrument{
+				MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
+				Lot:               1,
+			},
 		},
 		logger: zap.NewNop(),
 	}
@@ -717,14 +728,11 @@ func TestTinkoff_addProtectedSpread(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tinkoff := Tinkoff{
 				protectiveSpread: 5,
-				instrument: &investapi.Instrument{
-					MinPriceIncrement: &investapi.Quotation{
-						Units: 0,
-						Nano:  0.1 * 10e8,
-					},
-				},
 			}
-			result := tinkoff.addProtectedSpread(tt.pType, tt.price)
+			result := tinkoff.addProtectedSpread(tt.pType, tt.price, &investapi.Quotation{
+				Units: 0,
+				Nano:  0.1 * 10e8,
+			})
 			assert.Equal(t, tt.want, result)
 		})
 	}
