@@ -29,7 +29,7 @@ func Test_currentPosition_Close(t *testing.T) {
 	assert.NoError(t, err)
 
 	closed := make(chan trengin.Position, 1)
-	currentPosition := currentPosition{
+	currentPosition := brokerPosition{
 		position:     pos,
 		stopLossID:   "2",
 		takeProfitID: "3",

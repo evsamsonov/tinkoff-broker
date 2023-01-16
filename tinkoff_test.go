@@ -117,7 +117,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				stopOrderClient:  stopOrdersServiceClient,
 				marketDataClient: marketDataServiceClient,
 				instrumentClient: instrumentServiceClient,
-				currentPosition:  &currentPosition{},
+				currentPosition:  &brokerPosition{},
 				logger:           zap.NewNop(),
 			}
 
@@ -221,10 +221,10 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 
 func TestTinkoff_ChangeConditionalOrder_noOpenPosition(t *testing.T) {
 	tinkoff := &Tinkoff{
-		currentPosition: &currentPosition{},
+		currentPosition: &brokerPosition{},
 	}
 	_, err := tinkoff.ChangeConditionalOrder(context.Background(), trengin.ChangeConditionalOrderAction{})
-	assert.Errorf(t, err, "no open position")
+	assert.Errorf(t, err, "no open brokerPosition")
 }
 
 func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
@@ -257,7 +257,7 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 			},
 		},
 		{
-			name: "long position, stop loss and take profit set are given",
+			name: "long brokerPosition, stop loss and take profit set are given",
 			changeConditionOrderAction: trengin.ChangeConditionalOrderAction{
 				PositionID: trengin.PositionID{},
 				StopLoss:   123.43,
@@ -285,7 +285,7 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 				orderClient:      ordersServiceClient,
 				stopOrderClient:  stopOrdersServiceClient,
 				instrumentClient: instrumentServiceClient,
-				currentPosition: &currentPosition{
+				currentPosition: &brokerPosition{
 					position:     &trengin.Position{Type: tt.positionType, Quantity: 2, FIGI: "FUTSBRF06220"},
 					stopLossID:   "1",
 					takeProfitID: "3",
@@ -376,10 +376,10 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 
 func TestTinkoff_ClosePosition_noOpenPosition(t *testing.T) {
 	tinkoff := &Tinkoff{
-		currentPosition: &currentPosition{},
+		currentPosition: &brokerPosition{},
 	}
 	_, err := tinkoff.ClosePosition(context.Background(), trengin.ClosePositionAction{})
-	assert.Errorf(t, err, "no open position")
+	assert.Errorf(t, err, "no open brokerPosition")
 }
 
 func TestTinkoff_ClosePosition(t *testing.T) {
@@ -428,7 +428,7 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 				stopOrderClient:  stopOrdersServiceClient,
 				marketDataClient: marketDataServiceClient,
 				instrumentClient: instrumentServiceClient,
-				currentPosition: &currentPosition{
+				currentPosition: &brokerPosition{
 					instrument: &investapi.Instrument{
 						Figi:              "FUTSBRF06220",
 						MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
@@ -642,7 +642,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 		accountID:       "123",
 		orderClient:     ordersServiceClient,
 		stopOrderClient: stopOrdersServiceClient,
-		currentPosition: &currentPosition{
+		currentPosition: &brokerPosition{
 			position:     pos,
 			stopLossID:   "1",
 			takeProfitID: "3",
@@ -687,7 +687,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 		assert.InEpsilon(t, 174.7, position.ClosePrice, float64EqualityThreshold)
 		assert.InEpsilon(t, 125.6, position.Commission, float64EqualityThreshold)
 	default:
-		assert.Fail(t, "Failed to get closed position")
+		assert.Fail(t, "Failed to get closed brokerPosition")
 	}
 }
 
