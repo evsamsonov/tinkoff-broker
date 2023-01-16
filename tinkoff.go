@@ -322,7 +322,7 @@ func (t *Tinkoff) readTradesStream(ctx context.Context) error {
 	})
 
 	g.Go(func() error {
-		t.logger.Debug("Trades stream connection is connected")
+		t.logger.Debug("Trades stream is connected")
 		for {
 			resp, err := stream.Recv()
 			if err != nil {
