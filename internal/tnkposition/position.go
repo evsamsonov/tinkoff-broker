@@ -1,4 +1,4 @@
-package tnkbroker
+package tnkposition
 
 import (
 	"sync"
@@ -9,24 +9,24 @@ import (
 	"github.com/evsamsonov/trengin"
 )
 
-type openPosition struct {
-	mtx          *sync.Mutex
+type Position struct {
+	mtx          sync.Mutex
 	position     *trengin.Position
+	closed       chan trengin.Position
 	stopLossID   string
 	takeProfitID string
 	orderTrades  []*investapi.OrderTrade
-	closed       chan trengin.Position
 	instrument   *investapi.Instrument
 }
 
-func newOpenPosition(
+func NewPosition(
 	pos *trengin.Position,
 	instrument *investapi.Instrument,
 	stopLossID string,
 	takeProfitID string,
 	closed chan trengin.Position,
-) *openPosition {
-	return &openPosition{
+) *Position {
+	return &Position{
 		position:     pos,
 		stopLossID:   stopLossID,
 		takeProfitID: takeProfitID,
@@ -35,42 +35,49 @@ func newOpenPosition(
 	}
 }
 
-func (p *openPosition) SetStopLoss(id string, stopLoss float64) {
+func (p *Position) SetStopLoss(id string, stopLoss float64) {
 	p.stopLossID = id
 	p.position.StopLoss = stopLoss
 }
 
-func (p *openPosition) SetTakeProfitID(id string, takeProfit float64) {
+func (p *Position) SetTakeProfitID(id string, takeProfit float64) {
 	p.takeProfitID = id
 	p.position.TakeProfit = takeProfit
 }
 
-//func (p *brokerPosition) AddCommission(commission float64) {
-//	p.mtx.Lock()
-//	defer p.mtx.Unlock()
-//	if p.position == nil {
-//		return
-//	}
-//	p.position.AddCommission(commission)
-//}
-
-func (p *openPosition) AddOrderTrade(orderTrades ...*investapi.OrderTrade) {
+func (p *Position) AddOrderTrade(orderTrades ...*investapi.OrderTrade) {
 	p.orderTrades = append(p.orderTrades, orderTrades...)
 }
 
-func (p *openPosition) OrderTrades() []*investapi.OrderTrade {
+func (p *Position) StopLossID() string {
+	return p.stopLossID
+}
+
+func (p *Position) TakeProfitID() string {
+	return p.takeProfitID
+}
+
+func (p *Position) Position() trengin.Position {
+	return *p.position
+}
+
+func (p *Position) Instrument() *investapi.Instrument {
+	return p.instrument
+}
+
+func (p *Position) OrderTrades() []*investapi.OrderTrade {
 	result := make([]*investapi.OrderTrade, len(p.orderTrades))
 	copy(result, p.orderTrades)
 	return p.orderTrades
 }
 
-func (p *openPosition) Close(closePrice float64) (trengin.Position, error) {
+func (p *Position) Close(closePrice float64) error {
 	if err := p.position.Close(time.Now(), closePrice); err != nil {
-		return trengin.Position{}, err
+		return err
 	}
 
 	position := *p.position
 	p.closed <- position
-	p.position, p.stopLossID, p.takeProfitID = nil, "", ""
-	return position, nil
+	p.stopLossID, p.takeProfitID = "", ""
+	return nil
 }

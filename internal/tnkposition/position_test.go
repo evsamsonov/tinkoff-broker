@@ -1,4 +1,4 @@
-package tnkbroker
+package tnkposition
 
 import (
 	"testing"
