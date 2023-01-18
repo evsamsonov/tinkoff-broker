@@ -75,9 +75,7 @@ func (p *Position) Close(closePrice float64) error {
 	if err := p.position.Close(time.Now(), closePrice); err != nil {
 		return err
 	}
-
-	position := *p.position
-	p.closed <- position
+	p.closed <- *p.position
 	p.stopLossID, p.takeProfitID = "", ""
 	return nil
 }

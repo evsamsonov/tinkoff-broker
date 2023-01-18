@@ -1,8 +1,10 @@
 package tnkposition
 
 import (
+	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/evsamsonov/trengin"
 )
@@ -12,19 +14,34 @@ type Storage struct {
 	list map[trengin.PositionID]*Position
 }
 
-// todo запустить очистку...
-
-func (p *Storage) Store(pos *Position) {
-	p.mtx.Lock()
-	defer p.mtx.Unlock()
-	p.list[pos.position.ID] = pos
+func NewStorage() *Storage {
+	return &Storage{
+		list: make(map[trengin.PositionID]*Position),
+		,
+	}
 }
 
-func (p *Storage) Load(id trengin.PositionID) (*Position, func(), error) {
-	p.mtx.RUnlock()
-	defer p.mtx.RUnlock()
+func (s *Storage) Run(ctx context.Context) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	for k, p := range s.list {
+		if p.position.IsClosed() && time.Since(p.position.CloseTime) > 5*time.Minute {
+			delete(s.list, k)
+		}
+	}
+}
 
-	pos, ok := p.list[id]
+func (s *Storage) Store(pos *Position) {
+	s.mtx.Lock()
+	defer s.mtx.Unlock()
+	s.list[pos.position.ID] = pos
+}
+
+func (s *Storage) Load(id trengin.PositionID) (*Position, func(), error) {
+	s.mtx.RUnlock()
+	defer s.mtx.RUnlock()
+
+	pos, ok := s.list[id]
 	if !ok || pos.position.IsClosed() {
 		return &Position{}, func() {}, errors.New("position not found")
 	}
@@ -32,9 +49,9 @@ func (p *Storage) Load(id trengin.PositionID) (*Position, func(), error) {
 	return pos, func() { pos.mtx.Unlock() }, nil
 }
 
-func (p *Storage) ForEach(f func(pos *Position) error) error {
-	p.mtx.RLock()
-	defer p.mtx.RUnlock()
+func (s *Storage) ForEach(f func(pos *Position) error) error {
+	s.mtx.RLock()
+	defer s.mtx.RUnlock()
 
 	apply := func(pos *Position) error {
 		pos.mtx.Lock()
@@ -50,7 +67,7 @@ func (p *Storage) ForEach(f func(pos *Position) error) error {
 		return nil
 	}
 
-	for _, pos := range p.list {
+	for _, pos := range s.list {
 		if err := apply(pos); err != nil {
 			return err
 		}
