@@ -16,11 +16,13 @@ type currentPosition struct {
 	orderTrades  []*investapi.OrderTrade
 	closed       chan trengin.Position
 	mtx          sync.RWMutex
+	instrument   *investapi.Instrument
 }
 
 func (p *currentPosition) Set(
 	position *trengin.Position,
-	stopLossID,
+	instrument *investapi.Instrument,
+	stopLossID string,
 	takeProfitID string,
 	closed chan trengin.Position,
 ) {
@@ -28,6 +30,7 @@ func (p *currentPosition) Set(
 	defer p.mtx.Unlock()
 
 	p.position = position
+	p.instrument = instrument
 	p.stopLossID = stopLossID
 	p.takeProfitID = takeProfitID
 	p.closed = closed
@@ -45,6 +48,13 @@ func (p *currentPosition) Position() trengin.Position {
 	defer p.mtx.RUnlock()
 
 	return *p.position
+}
+
+func (p *currentPosition) Instrument() *investapi.Instrument {
+	p.mtx.RLock()
+	defer p.mtx.RUnlock()
+
+	return p.instrument
 }
 
 func (p *currentPosition) StopLossID() string {
