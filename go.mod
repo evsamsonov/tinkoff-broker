@@ -3,7 +3,7 @@ module github.com/evsamsonov/tinkoff-broker
 go 1.19
 
 require (
-	github.com/evsamsonov/trengin v1.0.1-0.20230112093518-768aac47d297
+	github.com/evsamsonov/trengin v1.0.1-0.20230118194958-1f778791d417
 	github.com/google/uuid v1.3.0
 	github.com/stretchr/testify v1.8.1
 	github.com/tinkoff/invest-api-go-sdk v1.0.2
@@ -29,5 +29,3 @@ require (
 	google.golang.org/protobuf v1.27.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-replace github.com/evsamsonov/trengin => /Users/evgeny/Projects/trengin
