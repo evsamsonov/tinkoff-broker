@@ -635,7 +635,9 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 		AccountId: "123",
 		OrderId:   "1953465028754600565",
 	}).Return(&investapi.OrderState{
-		InitialCommission: &investapi.MoneyValue{Units: 125, Nano: 0.6 * 10e8},
+		InitialCommission:     &investapi.MoneyValue{Units: 125, Nano: 0.6 * 10e8},
+		ExecutionReportStatus: investapi.OrderExecutionReportStatus_EXECUTION_REPORT_STATUS_FILL,
+		AveragePositionPrice:  &investapi.MoneyValue{Units: 174, Nano: 0.7 * 10e8},
 	}, nil)
 
 	tinkoff := &Tinkoff{
