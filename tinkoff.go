@@ -124,7 +124,7 @@ func New(token, accountID string, opts ...Option) (*Tinkoff, error) {
 		instrumentClient:            investapi.NewInstrumentsServiceClient(conn),
 		tradeStreamRetryTimeout:     defaultTradeStreamRetryTimeout,
 		tradeStreamPingWaitDuration: defaultTradeStreamPingTimeout,
-		positionStorage:             &tnkposition.Storage{},
+		positionStorage:             tnkposition.NewStorage(),
 		logger:                      zap.NewNop(),
 	}
 	for _, opt := range opts {
