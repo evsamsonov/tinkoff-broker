@@ -363,12 +363,8 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 		tinkoffPosition.AddOrderTrade(orderTrades.GetTrades()...)
 
 		var executedQuantity int64
-		var closePrice float64
 		for _, trade := range tinkoffPosition.OrderTrades() {
-			quan := trade.GetQuantity() / int64(tinkoffPosition.Instrument().Lot)
-			executedQuantity += quan
-			price := NewMoneyValue(trade.Price)
-			closePrice += price.ToFloat() * float64(quan)
+			executedQuantity += trade.GetQuantity() / int64(tinkoffPosition.Instrument().Lot)
 		}
 		if executedQuantity < position.Quantity {
 			logger.Info("Position partially closed", zap.Any("executedQuantity", executedQuantity))
@@ -379,11 +375,16 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 			return fmt.Errorf("cancel stop orders: %w", err)
 		}
 
-		commission := t.orderCommission(ctx, orderTrades.OrderId)
+		orderState, err := t.getExecutedOrderState(ctx, orderTrades.OrderId)
+		if err != nil {
+			return fmt.Errorf("get executed order state: %w", err)
+		}
+
+		closePrice := NewMoneyValue(orderState.AveragePositionPrice)
+		commission := NewMoneyValue(orderState.InitialCommission)
 		tinkoffPosition.AddCommission(commission.ToFloat())
 
-		closePrice /= float64(executedQuantity)
-		if err := tinkoffPosition.Close(closePrice); err != nil {
+		if err := tinkoffPosition.Close(closePrice.ToFloat()); err != nil {
 			if errors.Is(err, trengin.ErrAlreadyClosed) {
 				logger.Info("Position already closed")
 				return nil
@@ -614,25 +615,6 @@ func (t *Tinkoff) cancelStopOrders(ctx context.Context, tinkoffPosition *tnkposi
 		}
 	}
 	return nil
-}
-
-func (t *Tinkoff) orderCommission(ctx context.Context, orderID string) *MoneyValue {
-	orderStateRequest := &investapi.GetOrderStateRequest{
-		AccountId: t.accountID,
-		OrderId:   orderID,
-	}
-	orderState, err := t.orderClient.GetOrderState(ctx, orderStateRequest)
-	if err != nil {
-		t.logger.Error(
-			"Failed to get order commission",
-			zap.Error(err),
-			zap.Any("orderStateRequest", orderStateRequest),
-		)
-		return NewZeroMoneyValue()
-	}
-	t.logger.Info("Order state was received", zap.Any("orderState", orderState))
-
-	return NewMoneyValue(orderState.InitialCommission)
 }
 
 func (t *Tinkoff) getLastPrice(ctx context.Context, figi string) (*investapi.Quotation, error) {
