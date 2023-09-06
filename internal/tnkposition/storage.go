@@ -42,7 +42,7 @@ func (s *Storage) Store(pos *Position) {
 }
 
 func (s *Storage) Load(id trengin.PositionID) (*Position, func(), error) {
-	s.mtx.RUnlock()
+	s.mtx.RLock()
 	defer s.mtx.RUnlock()
 
 	pos, ok := s.list[id]

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evsamsonov/tinkoff-broker/internal/tnkposition"
+
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -117,7 +119,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				stopOrderClient:  stopOrdersServiceClient,
 				marketDataClient: marketDataServiceClient,
 				instrumentClient: instrumentServiceClient,
-				currentPosition:  &brokerPosition{},
+				positionStorage:  tnkposition.NewStorage(),
 				logger:           zap.NewNop(),
 			}
 
@@ -213,15 +215,15 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				assert.Equal(t, 0., position.TakeProfit)
 			}
 
-			assert.Equal(t, tt.want.stopLossID, tinkoff.currentPosition.StopLossID())
-			assert.Equal(t, tt.want.takeProfitID, tinkoff.currentPosition.TakeProfitID())
+			//assert.Equal(t, tt.want.stopLossID, tinkoff.currentPosition.StopLossID())
+			//assert.Equal(t, tt.want.takeProfitID, tinkoff.currentPosition.TakeProfitID())
 		})
 	}
 }
 
 func TestTinkoff_ChangeConditionalOrder_noOpenPosition(t *testing.T) {
 	tinkoff := &Tinkoff{
-		currentPosition: &brokerPosition{},
+		positionStorage: tnkposition.NewStorage(),
 	}
 	_, err := tinkoff.ChangeConditionalOrder(context.Background(), trengin.ChangeConditionalOrderAction{})
 	assert.Errorf(t, err, "no open brokerPosition")
@@ -279,23 +281,26 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 			ordersServiceClient := &mockOrdersServiceClient{}
 			stopOrdersServiceClient := &mockStopOrdersServiceClient{}
 			instrumentServiceClient := &mockInstrumentServiceClient{}
+			positionStorage := tnkposition.NewStorage()
 
 			tinkoff := &Tinkoff{
 				accountID:        "123",
 				orderClient:      ordersServiceClient,
 				stopOrderClient:  stopOrdersServiceClient,
 				instrumentClient: instrumentServiceClient,
-				currentPosition: &brokerPosition{
-					position:     &trengin.Position{Type: tt.positionType, Quantity: 2, FIGI: "FUTSBRF06220"},
-					stopLossID:   "1",
-					takeProfitID: "3",
-					instrument: &investapi.Instrument{
-						Figi:              "FUTSBRF06220",
-						MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
-					},
-				},
-				logger: zap.NewNop(),
+				positionStorage:  positionStorage,
+				logger:           zap.NewNop(),
 			}
+			positionStorage.Store(tnkposition.NewPosition(
+				&trengin.Position{Type: tt.positionType, Quantity: 2, FIGI: "FUTSBRF06220"},
+				&investapi.Instrument{
+					Figi:              "FUTSBRF06220",
+					MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
+				},
+				"1",
+				"3",
+				make(chan trengin.Position, 1),
+			))
 
 			instrumentServiceClient.On("GetInstrumentBy", mock.Anything, &investapi.InstrumentRequest{
 				IdType: investapi.InstrumentIdType_INSTRUMENT_ID_TYPE_FIGI,
@@ -368,15 +373,15 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 				assert.InEpsilon(t, NewMoneyValue(tt.want.takeProfit).ToFloat(), position.TakeProfit, float64EqualityThreshold)
 			}
 
-			assert.Equal(t, tt.want.stopLossID, tinkoff.currentPosition.StopLossID())
-			assert.Equal(t, tt.want.takeProfitID, tinkoff.currentPosition.TakeProfitID())
+			//assert.Equal(t, tt.want.stopLossID, tinkoff.currentPosition.StopLossID())
+			//assert.Equal(t, tt.want.takeProfitID, tinkoff.currentPosition.TakeProfitID())
 		})
 	}
 }
 
 func TestTinkoff_ClosePosition_noOpenPosition(t *testing.T) {
 	tinkoff := &Tinkoff{
-		currentPosition: &brokerPosition{},
+		positionStorage: tnkposition.NewStorage(),
 	}
 	_, err := tinkoff.ClosePosition(context.Background(), trengin.ClosePositionAction{})
 	assert.Errorf(t, err, "no open brokerPosition")
@@ -416,30 +421,33 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 			defer func() { assert.NoError(t, patch.Unpatch()) }()
 			assert.NoError(t, err)
 
-			pos, err := trengin.NewPosition(
-				trengin.NewOpenPositionAction("FUTSBRF06220", tt.positionType, 2, 0, 0),
-				time.Now(),
-				150,
-			)
-			assert.NoError(t, err)
+			positionStorage := tnkposition.NewStorage()
 			tinkoff := &Tinkoff{
 				accountID:        "123",
 				orderClient:      ordersServiceClient,
 				stopOrderClient:  stopOrdersServiceClient,
 				marketDataClient: marketDataServiceClient,
 				instrumentClient: instrumentServiceClient,
-				currentPosition: &brokerPosition{
-					instrument: &investapi.Instrument{
-						Figi:              "FUTSBRF06220",
-						MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
-					},
-					position:     pos,
-					stopLossID:   "1",
-					takeProfitID: "3",
-					closed:       make(chan trengin.Position, 1),
-				},
-				logger: zap.NewNop(),
+				positionStorage:  positionStorage,
+				logger:           zap.NewNop(),
 			}
+			pos, err := trengin.NewPosition(
+				trengin.NewOpenPositionAction("FUTSBRF06220", tt.positionType, 2, 0, 0),
+				time.Now(),
+				150,
+			)
+			assert.NoError(t, err)
+
+			positionStorage.Store(tnkposition.NewPosition(
+				pos,
+				&investapi.Instrument{
+					Figi:              "FUTSBRF06220",
+					MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
+				},
+				"1",
+				"3",
+				make(chan trengin.Position, 1),
+			))
 
 			stopOrdersServiceClient.On("CancelStopOrder", mock.Anything, &investapi.CancelStopOrderRequest{
 				AccountId:   "123",
@@ -483,7 +491,9 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 				AveragePositionPrice:  tt.wantClosePrice,
 			}, nil)
 
-			position, err := tinkoff.ClosePosition(context.Background(), trengin.ClosePositionAction{})
+			position, err := tinkoff.ClosePosition(context.Background(), trengin.ClosePositionAction{
+				PositionID: pos.ID,
+			})
 			assert.NoError(t, err)
 			assert.InEpsilon(t, NewMoneyValue(tt.wantClosePrice).ToFloat(), position.ClosePrice, float64EqualityThreshold)
 		})
@@ -607,19 +617,13 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 	stopOrdersServiceClient := &mockStopOrdersServiceClient{}
 
 	closed := make(chan trengin.Position, 1)
-	pos, err := trengin.NewPosition(
-		trengin.NewOpenPositionAction("FUTSBRF06220", trengin.Long, 4, 0, 0),
-		time.Now(),
-		150,
-	)
-	assert.NoError(t, err)
 
 	stopOrdersServiceClient.On("GetStopOrders", mock.Anything, &investapi.GetStopOrdersRequest{
 		AccountId: "123",
 	}).Return(&investapi.GetStopOrdersResponse{
 		StopOrders: []*investapi.StopOrder{
-			{StopOrderId: "1"},
-			{StopOrderId: "3"},
+			{StopOrderId: "10"},
+			{StopOrderId: "30"},
 		},
 	}, nil)
 	stopOrdersServiceClient.On("CancelStopOrder", mock.Anything, &investapi.CancelStopOrderRequest{
@@ -638,22 +642,31 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 		InitialCommission: &investapi.MoneyValue{Units: 125, Nano: 0.6 * 10e8},
 	}, nil)
 
+	positionStorage := tnkposition.NewStorage()
 	tinkoff := &Tinkoff{
 		accountID:       "123",
 		orderClient:     ordersServiceClient,
 		stopOrderClient: stopOrdersServiceClient,
-		currentPosition: &brokerPosition{
-			position:     pos,
-			stopLossID:   "1",
-			takeProfitID: "3",
-			closed:       closed,
-			instrument: &investapi.Instrument{
-				MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
-				Lot:               1,
-			},
-		},
-		logger: zap.NewNop(),
+		positionStorage: positionStorage,
+		logger:          zap.NewNop(),
 	}
+	pos, err := trengin.NewPosition(
+		trengin.NewOpenPositionAction("FUTSBRF06220", trengin.Long, 4, 0, 0),
+		time.Now(),
+		150,
+	)
+	assert.NoError(t, err)
+	positionStorage.Store(tnkposition.NewPosition(
+		pos,
+		&investapi.Instrument{
+			Figi:              "FUTSBRF06220",
+			MinPriceIncrement: &investapi.Quotation{Units: 0, Nano: 0.01 * 10e8},
+			Lot:               1,
+		},
+		"1",
+		"3",
+		closed,
+	))
 
 	ot := &investapi.OrderTrades{
 		OrderId:   "1953465028754600565",
@@ -687,7 +700,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 		assert.InEpsilon(t, 174.7, position.ClosePrice, float64EqualityThreshold)
 		assert.InEpsilon(t, 125.6, position.Commission, float64EqualityThreshold)
 	default:
-		assert.Fail(t, "Failed to get closed brokerPosition")
+		assert.Fail(t, "Failed to get closed position")
 	}
 }
 

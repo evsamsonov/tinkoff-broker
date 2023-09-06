@@ -351,12 +351,15 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 			return nil
 		}
 
-		// todo проверяем, что стоп-лосс снят
-		// todo если снят, то вот она позиция, которую нужно обработать
-		// todo добавить в ошибку инфу о позиции
+		conditionalOrdersFound, err := t.conditionalOrdersFound(ctx, tinkoffPosition)
+		if err != nil {
+			return fmt.Errorf("conditional orders found: %w", err)
+		}
+		if conditionalOrdersFound {
+			return nil
+		}
 
-		logger := t.logger.With(zap.Any("tinkoffPosition", tinkoffPosition))
-
+		logger := t.logger.With(zap.Any("position", position))
 		tinkoffPosition.AddOrderTrade(orderTrades.GetTrades()...)
 
 		var executedQuantity int64
@@ -373,11 +376,11 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi
 		}
 
 		if err := t.cancelStopOrders(ctx, tinkoffPosition); err != nil {
-			return err
+			return fmt.Errorf("cancel stop orders: %w", err)
 		}
 
 		commission := t.orderCommission(ctx, orderTrades.OrderId)
-		position.AddCommission(commission.ToFloat())
+		tinkoffPosition.AddCommission(commission.ToFloat())
 
 		closePrice /= float64(executedQuantity)
 		if err := tinkoffPosition.Close(closePrice); err != nil {
@@ -700,4 +703,17 @@ func (t *Tinkoff) getInstrument(ctx context.Context, figi string) (*investapi.In
 		return nil, fmt.Errorf("get instrument by %s: %w", figi, err)
 	}
 	return instrumentResponse.GetInstrument(), nil
+}
+
+func (t *Tinkoff) conditionalOrdersFound(ctx context.Context, position *tnkposition.Position) (bool, error) {
+	resp, err := t.stopOrderClient.GetStopOrders(ctx, &investapi.GetStopOrdersRequest{AccountId: t.accountID})
+	if err != nil {
+		return false, fmt.Errorf("get stop orders: %w", err)
+	}
+	for _, order := range resp.StopOrders {
+		if order.StopOrderId == position.TakeProfitID() || order.StopOrderId == position.StopLossID() {
+			return true, nil
+		}
+	}
+	return false, nil
 }

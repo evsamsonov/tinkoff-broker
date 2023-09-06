@@ -49,6 +49,10 @@ func (p *Position) AddOrderTrade(orderTrades ...*investapi.OrderTrade) {
 	p.orderTrades = append(p.orderTrades, orderTrades...)
 }
 
+func (p *Position) AddCommission(val float64) {
+	p.position.AddCommission(val)
+}
+
 func (p *Position) StopLossID() string {
 	return p.stopLossID
 }
