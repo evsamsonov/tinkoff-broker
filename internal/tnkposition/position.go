@@ -6,7 +6,7 @@ import (
 
 	investapi "github.com/tinkoff/invest-api-go-sdk"
 
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/trengin/v2"
 )
 
 type Position struct {

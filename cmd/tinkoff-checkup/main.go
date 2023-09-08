@@ -30,7 +30,7 @@ import (
 	"syscall"
 
 	tnkbroker "github.com/evsamsonov/tinkoff-broker"
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/trengin/v2"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
@@ -72,8 +72,8 @@ type CheckUpArgs struct {
 	accountID        string
 	instrumentFIGI   string
 	tinkoffToken     string
-	stopLossIndent   float64
-	takeProfitIndent float64
+	stopLossOffset   float64
+	takeProfitOffset float64
 	positionType     trengin.PositionType
 }
 
@@ -106,18 +106,18 @@ func (c *CheckUpArgs) AskUser() error {
 		c.positionType = trengin.Short
 	}
 
-	var stopLossIndent, takeProfitIndent float64
+	var StopLossOffset, TakeProfitOffset float64
 	fmt.Print("Enter stop loss indent [0 - skip]: ")
-	if _, err = fmt.Scanln(&stopLossIndent); err != nil {
+	if _, err = fmt.Scanln(&StopLossOffset); err != nil {
 		return fmt.Errorf("read stop loss indent: %w", err)
 	}
-	c.stopLossIndent = stopLossIndent
+	c.stopLossOffset = StopLossOffset
 
 	fmt.Print("Enter take profit indent [0 - skip]: ")
-	if _, err = fmt.Scanln(&takeProfitIndent); err != nil {
+	if _, err = fmt.Scanln(&TakeProfitOffset); err != nil {
 		return fmt.Errorf("read take profit indent: %w", err)
 	}
-	c.takeProfitIndent = takeProfitIndent
+	c.takeProfitOffset = TakeProfitOffset
 	return nil
 }
 
@@ -171,8 +171,8 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 			Type:             params.positionType,
 			FIGI:             params.instrumentFIGI,
 			Quantity:         1,
-			StopLossIndent:   params.stopLossIndent,
-			TakeProfitIndent: params.takeProfitIndent,
+			StopLossOffset:   params.stopLossOffset,
+			TakeProfitOffset: params.takeProfitOffset,
 		}
 		position, positionClosed, err := tinkoffBroker.OpenPosition(ctx, openPositionAction)
 		if err != nil {
@@ -205,8 +205,8 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 
 		changeConditionalOrderAction := trengin.ChangeConditionalOrderAction{
 			PositionID: position.ID,
-			StopLoss:   position.OpenPrice - params.stopLossIndent/2*position.Type.Multiplier(),
-			TakeProfit: position.OpenPrice + params.takeProfitIndent/2*position.Type.Multiplier(),
+			StopLoss:   position.OpenPrice - params.stopLossOffset/2*position.Type.Multiplier(),
+			TakeProfit: position.OpenPrice + params.takeProfitOffset/2*position.Type.Multiplier(),
 		}
 		position, err = tinkoffBroker.ChangeConditionalOrder(ctx, changeConditionalOrderAction)
 		if err != nil {

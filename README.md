@@ -27,7 +27,7 @@ import (
 	"log"
 
 	tnkbroker "github.com/evsamsonov/tinkoff-broker"
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/trengin/v2"
 )
 
 func main() {

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/trengin/v2"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -43,8 +43,8 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				FIGI:             "FUTSBRF06220",
 				Type:             trengin.Long,
 				Quantity:         2,
-				StopLossIndent:   11.5,
-				TakeProfitIndent: 20.1,
+				StopLossOffset:   11.5,
+				TakeProfitOffset: 20.1,
 			},
 			want: testWant{
 				orderDirection:     investapi.OrderDirection_ORDER_DIRECTION_BUY,
@@ -63,8 +63,8 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				FIGI:             "FUTSBRF06220",
 				Type:             trengin.Short,
 				Quantity:         2,
-				StopLossIndent:   11.5,
-				TakeProfitIndent: 20.1,
+				StopLossOffset:   11.5,
+				TakeProfitOffset: 20.1,
 			},
 			want: testWant{
 				orderDirection:     investapi.OrderDirection_ORDER_DIRECTION_SELL,
@@ -83,8 +83,8 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				FIGI:             "FUTSBRF06220",
 				Type:             trengin.Long,
 				Quantity:         2,
-				StopLossIndent:   0.0,
-				TakeProfitIndent: 0.0,
+				StopLossOffset:   0.0,
+				TakeProfitOffset: 0.0,
 			},
 			want: testWant{
 				orderDirection:     investapi.OrderDirection_ORDER_DIRECTION_BUY,
@@ -164,7 +164,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				AveragePositionPrice:  tt.want.openPrice,
 			}, nil)
 
-			if tt.openPositionAction.StopLossIndent != 0 {
+			if tt.openPositionAction.StopLossOffset != 0 {
 				stopOrdersServiceClient.On("PostStopOrder", mock.Anything, &investapi.PostStopOrderRequest{
 					Figi:           "FUTSBRF06220",
 					Quantity:       2,
@@ -179,7 +179,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				}, nil).Once()
 			}
 
-			if tt.openPositionAction.TakeProfitIndent != 0 {
+			if tt.openPositionAction.TakeProfitOffset != 0 {
 				stopOrdersServiceClient.On("PostStopOrder", mock.Anything, &investapi.PostStopOrderRequest{
 					Figi:           "FUTSBRF06220",
 					Quantity:       2,
@@ -518,7 +518,7 @@ func TestTinkoff_stopLossPriceByOpen(t *testing.T) {
 			},
 			action: trengin.OpenPositionAction{
 				Type:           trengin.Long,
-				StopLossIndent: 5,
+				StopLossOffset: 5,
 			},
 			want: &investapi.Quotation{
 				Units: 118,
@@ -533,7 +533,7 @@ func TestTinkoff_stopLossPriceByOpen(t *testing.T) {
 			},
 			action: trengin.OpenPositionAction{
 				Type:           trengin.Long,
-				StopLossIndent: 50.5,
+				StopLossOffset: 50.5,
 			},
 			want: &investapi.Quotation{
 				Units: 72,
@@ -548,7 +548,7 @@ func TestTinkoff_stopLossPriceByOpen(t *testing.T) {
 			},
 			action: trengin.OpenPositionAction{
 				Type:           trengin.Long,
-				StopLossIndent: 50.556,
+				StopLossOffset: 50.556,
 			},
 			want: &investapi.Quotation{
 				Units: 72,
@@ -563,7 +563,7 @@ func TestTinkoff_stopLossPriceByOpen(t *testing.T) {
 			},
 			action: trengin.OpenPositionAction{
 				Type:           trengin.Short,
-				StopLossIndent: 5,
+				StopLossOffset: 5,
 			},
 			want: &investapi.Quotation{
 				Units: 128,
@@ -578,7 +578,7 @@ func TestTinkoff_stopLossPriceByOpen(t *testing.T) {
 			},
 			action: trengin.OpenPositionAction{
 				Type:           trengin.Short,
-				StopLossIndent: 50.4,
+				StopLossOffset: 50.4,
 			},
 			want: &investapi.Quotation{
 				Units: 173,
@@ -593,7 +593,7 @@ func TestTinkoff_stopLossPriceByOpen(t *testing.T) {
 			},
 			action: trengin.OpenPositionAction{
 				Type:           trengin.Short,
-				StopLossIndent: 50.556,
+				StopLossOffset: 50.556,
 			},
 			want: &investapi.Quotation{
 				Units: 174,
