@@ -14,7 +14,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/trengin/v2"
 	"github.com/google/uuid"
 	investapi "github.com/tinkoff/invest-api-go-sdk"
 	"go.uber.org/zap"
@@ -176,14 +176,14 @@ func (t *Tinkoff) OpenPosition(
 	position.AddCommission(commission.ToFloat())
 
 	var stopLossID, takeProfitID string
-	if action.StopLossIndent != 0 {
+	if action.StopLossOffset != 0 {
 		stopLoss := t.stopLossPriceByOpen(openPrice, action, instrument.MinPriceIncrement)
 		stopLossID, err = t.setStopLoss(ctx, instrument, stopLoss, *position)
 		if err != nil {
 			return trengin.Position{}, nil, fmt.Errorf("set stop order: %w", err)
 		}
 	}
-	if action.TakeProfitIndent != 0 {
+	if action.TakeProfitOffset != 0 {
 		takeProfit := t.takeProfitPriceByOpen(openPrice, action, instrument.MinPriceIncrement)
 		takeProfitID, err = t.setTakeProfit(ctx, instrument, takeProfit, *position)
 		if err != nil {
@@ -547,7 +547,7 @@ func (t *Tinkoff) stopLossPriceByOpen(
 	action trengin.OpenPositionAction,
 	minPriceIncrement *investapi.Quotation,
 ) *investapi.Quotation {
-	stopLoss := openPrice.ToFloat() - action.StopLossIndent*action.Type.Multiplier()
+	stopLoss := openPrice.ToFloat() - action.StopLossOffset*action.Type.Multiplier()
 	return t.convertFloatToQuotation(minPriceIncrement, stopLoss)
 }
 
@@ -556,7 +556,7 @@ func (t *Tinkoff) takeProfitPriceByOpen(
 	action trengin.OpenPositionAction,
 	minPriceIncrement *investapi.Quotation,
 ) *investapi.Quotation {
-	takeProfit := openPrice.ToFloat() + action.TakeProfitIndent*action.Type.Multiplier()
+	takeProfit := openPrice.ToFloat() + action.TakeProfitOffset*action.Type.Multiplier()
 	return t.convertFloatToQuotation(minPriceIncrement, takeProfit)
 }
 

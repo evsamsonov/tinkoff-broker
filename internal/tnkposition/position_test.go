@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/undefinedlabs/go-mpatch"
 
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/trengin/v2"
 )
 
 func Test_currentPosition_Close(t *testing.T) {

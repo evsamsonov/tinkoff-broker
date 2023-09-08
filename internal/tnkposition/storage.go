@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/trengin/v2"
 )
 
 type Storage struct {
