@@ -1,6 +1,6 @@
 // Package tnkbroker implements [trengin.Broker] using [Tinkoff Invest API].
 // The implementation doesn't support multiple open positions at the same time.
-// Commission in position is approximate.
+// Commission in brokerPosition is approximate.
 //
 // [Tinkoff Invest API]: https://tinkoff.github.io/investAPI/
 package tnkbroker
@@ -12,9 +12,9 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"sync"
 	"time"
 
+	"github.com/evsamsonov/trengin"
 	"github.com/google/uuid"
 	investapi "github.com/tinkoff/invest-api-go-sdk"
 	"go.uber.org/zap"
@@ -25,14 +25,14 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/tinkoff-broker/internal/tnkposition"
 )
 
 var _ trengin.Broker = &Tinkoff{}
 
 const (
 	tinkoffHost                    = "invest-public-api.tinkoff.ru:443"
-	defaultProtectiveSpread        = 0.5 // In percent
+	defaultProtectiveSpread        = 1 // In percent
 	defaultTradeStreamRetryTimeout = 1 * time.Minute
 	defaultTradeStreamPingTimeout  = 6 * time.Minute
 )
@@ -49,9 +49,8 @@ type Tinkoff struct {
 	tradeStreamRetryTimeout     time.Duration
 	tradeStreamPingWaitDuration time.Duration
 	protectiveSpread            float64
-	currentPosition             *currentPosition
+	positionStorage             *tnkposition.Storage
 	logger                      *zap.Logger
-	closePositionMtx            sync.Mutex
 }
 
 type Option func(*Tinkoff)
@@ -125,7 +124,7 @@ func New(token, accountID string, opts ...Option) (*Tinkoff, error) {
 		instrumentClient:            investapi.NewInstrumentsServiceClient(conn),
 		tradeStreamRetryTimeout:     defaultTradeStreamRetryTimeout,
 		tradeStreamPingWaitDuration: defaultTradeStreamPingTimeout,
-		currentPosition:             &currentPosition{},
+		positionStorage:             tnkposition.NewStorage(),
 		logger:                      zap.NewNop(),
 	}
 	for _, opt := range opts {
@@ -134,7 +133,7 @@ func New(token, accountID string, opts ...Option) (*Tinkoff, error) {
 	return tinkoff, nil
 }
 
-// Run starts to track an open position
+// Run starts to track an open positions
 func (t *Tinkoff) Run(ctx context.Context) error {
 	for {
 		err := t.readTradesStream(ctx)
@@ -155,15 +154,11 @@ func (t *Tinkoff) Run(ctx context.Context) error {
 	}
 }
 
-// OpenPosition opens position, returns new position and channel for tracking position closing.
+// OpenPosition opens brokerPosition, returns new brokerPosition and channel for tracking brokerPosition closing.
 func (t *Tinkoff) OpenPosition(
 	ctx context.Context,
 	action trengin.OpenPositionAction,
 ) (trengin.Position, trengin.PositionClosed, error) {
-	if t.currentPosition.Exist() {
-		return trengin.Position{}, nil, fmt.Errorf("no support multiple open position")
-	}
-
 	ctx = t.ctxWithMetadata(ctx)
 	instrument, err := t.getInstrument(ctx, action.FIGI)
 	if err != nil {
@@ -182,117 +177,98 @@ func (t *Tinkoff) OpenPosition(
 
 	var stopLossID, takeProfitID string
 	if action.StopLossIndent != 0 {
-		stopLossID, err = t.setStopLoss(
-			ctx,
-			instrument,
-			t.stopLossPriceByOpen(openPrice, action, instrument.MinPriceIncrement),
-			*position,
-		)
+		stopLoss := t.stopLossPriceByOpen(openPrice, action, instrument.MinPriceIncrement)
+		stopLossID, err = t.setStopLoss(ctx, instrument, stopLoss, *position)
 		if err != nil {
 			return trengin.Position{}, nil, fmt.Errorf("set stop order: %w", err)
 		}
 	}
-
 	if action.TakeProfitIndent != 0 {
-		takeProfitID, err = t.setTakeProfit(
-			ctx,
-			instrument,
-			t.takeProfitPriceByOpen(openPrice, action, instrument.MinPriceIncrement),
-			*position,
-		)
+		takeProfit := t.takeProfitPriceByOpen(openPrice, action, instrument.MinPriceIncrement)
+		takeProfitID, err = t.setTakeProfit(ctx, instrument, takeProfit, *position)
 		if err != nil {
 			return trengin.Position{}, nil, fmt.Errorf("set stop order: %w", err)
 		}
 	}
 
 	positionClosed := make(chan trengin.Position, 1)
-	t.currentPosition.Set(position, instrument, stopLossID, takeProfitID, positionClosed)
+	t.positionStorage.Store(tnkposition.NewPosition(position, instrument, stopLossID, takeProfitID, positionClosed))
 
 	return *position, positionClosed, nil
 }
 
-// ChangeConditionalOrder changes stop loss and take profit of current position.
-// It returns updated position.
+// ChangeConditionalOrder changes stop loss and take profit of current brokerPosition.
+// It returns updated brokerPosition.
 func (t *Tinkoff) ChangeConditionalOrder(
 	ctx context.Context,
 	action trengin.ChangeConditionalOrderAction,
 ) (trengin.Position, error) {
-	if !t.currentPosition.Exist() {
-		return trengin.Position{}, fmt.Errorf("no open position")
+	tinkoffPosition, unlockPosition, err := t.positionStorage.Load(action.PositionID)
+	if err != nil {
+		return trengin.Position{}, fmt.Errorf("load position: %w", err)
 	}
+	defer unlockPosition()
 
 	ctx = t.ctxWithMetadata(ctx)
-	instrument := t.currentPosition.Instrument()
+	instrument := tinkoffPosition.Instrument()
 	if action.StopLoss != 0 {
-		if err := t.cancelStopOrder(ctx, t.currentPosition.StopLossID()); err != nil {
-			return trengin.Position{}, err
+		if err := t.cancelStopOrder(ctx, tinkoffPosition.StopLossID()); err != nil {
+			return trengin.Position{}, fmt.Errorf("cancel stop loss: %w", err)
 		}
 
-		stopLossID, err := t.setStopLoss(
-			ctx,
-			instrument,
-			t.convertFloatToQuotation(instrument.MinPriceIncrement, action.StopLoss),
-			*t.currentPosition.position,
-		)
+		stopLoss := t.convertFloatToQuotation(instrument.MinPriceIncrement, action.StopLoss)
+		stopLossID, err := t.setStopLoss(ctx, instrument, stopLoss, tinkoffPosition.Position())
 		if err != nil {
-			return trengin.Position{}, err
+			return trengin.Position{}, fmt.Errorf("set stop loss: %w", err)
 		}
-		t.currentPosition.SetStopLossID(stopLossID)
-		t.currentPosition.position.StopLoss = action.StopLoss
+		tinkoffPosition.SetStopLoss(stopLossID, action.StopLoss)
 	}
 
 	if action.TakeProfit != 0 {
-		if err := t.cancelStopOrder(ctx, t.currentPosition.TakeProfitID()); err != nil {
-			return trengin.Position{}, err
+		if err := t.cancelStopOrder(ctx, tinkoffPosition.TakeProfitID()); err != nil {
+			return trengin.Position{}, fmt.Errorf("cancel take profit: %w", err)
 		}
 
-		takeProfitID, err := t.setTakeProfit(
-			ctx,
-			instrument,
-			t.convertFloatToQuotation(instrument.MinPriceIncrement, action.TakeProfit),
-			*t.currentPosition.position,
-		)
+		takeProfit := t.convertFloatToQuotation(instrument.MinPriceIncrement, action.TakeProfit)
+		takeProfitID, err := t.setTakeProfit(ctx, instrument, takeProfit, tinkoffPosition.Position())
 		if err != nil {
-			return trengin.Position{}, err
+			return trengin.Position{}, fmt.Errorf("set take profit: %w", err)
 		}
-		t.currentPosition.SetTakeProfitID(takeProfitID)
-		t.currentPosition.position.TakeProfit = action.TakeProfit
+		tinkoffPosition.SetTakeProfitID(takeProfitID, action.TakeProfit)
 	}
-
-	return t.currentPosition.Position(), nil
+	return tinkoffPosition.Position(), nil
 }
 
 // ClosePosition closes current position and returns closed position.
-func (t *Tinkoff) ClosePosition(ctx context.Context, _ trengin.ClosePositionAction) (trengin.Position, error) {
-	t.closePositionMtx.Lock()
-	defer t.closePositionMtx.Unlock()
-
-	if !t.currentPosition.Exist() {
-		return trengin.Position{}, fmt.Errorf("no open position")
+func (t *Tinkoff) ClosePosition(ctx context.Context, action trengin.ClosePositionAction) (trengin.Position, error) {
+	tinkoffPosition, unlockPosition, err := t.positionStorage.Load(action.PositionID)
+	if err != nil {
+		return trengin.Position{}, fmt.Errorf("load position: %w", err)
 	}
+	defer unlockPosition()
 
 	ctx = t.ctxWithMetadata(ctx)
-	if err := t.cancelStopOrder(ctx, t.currentPosition.StopLossID()); err != nil {
+	if err := t.cancelStopOrder(ctx, tinkoffPosition.StopLossID()); err != nil {
 		return trengin.Position{}, fmt.Errorf("cancel stop loss: %w", err)
 	}
-	if err := t.cancelStopOrder(ctx, t.currentPosition.TakeProfitID()); err != nil {
+	if err := t.cancelStopOrder(ctx, tinkoffPosition.TakeProfitID()); err != nil {
 		return trengin.Position{}, fmt.Errorf("cancel take profit: %w", err)
 	}
 
-	instrument := t.currentPosition.Instrument()
-	position := t.currentPosition.Position()
+	instrument := tinkoffPosition.Instrument()
+	position := tinkoffPosition.Position()
 	closePrice, commission, err := t.openMarketOrder(ctx, instrument, position.Type.Inverse(), position.Quantity)
 	if err != nil {
 		return trengin.Position{}, fmt.Errorf("open market order: %w", err)
 	}
-	t.currentPosition.AddCommission(commission.ToFloat())
-	position, err = t.currentPosition.Close(closePrice.ToFloat())
-	if err != nil {
+
+	position.AddCommission(commission.ToFloat())
+	if err := tinkoffPosition.Close(closePrice.ToFloat()); err != nil {
 		return trengin.Position{}, fmt.Errorf("close: %w", err)
 	}
 
-	t.logger.Info("Position was closed", zap.Any("position", position))
-	return position, nil
+	t.logger.Info("Position was closed", zap.Any("tinkoffPosition", tinkoffPosition))
+	return tinkoffPosition.Position(), nil
 }
 
 func (t *Tinkoff) readTradesStream(ctx context.Context) error {
@@ -361,66 +337,64 @@ func (t *Tinkoff) readTradesStream(ctx context.Context) error {
 }
 
 func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *investapi.OrderTrades) error {
-	t.closePositionMtx.Lock()
-	defer t.closePositionMtx.Unlock()
-
-	if !t.currentPosition.Exist() {
-		return nil
-	}
 	if orderTrades.AccountId != t.accountID {
 		return nil
 	}
-
-	position := t.currentPosition.Position()
-	if orderTrades.Figi != position.FIGI {
-		return nil
-	}
-
-	longClosed := position.IsLong() && orderTrades.Direction == investapi.OrderDirection_ORDER_DIRECTION_SELL
-	shortClosed := position.IsShort() && orderTrades.Direction == investapi.OrderDirection_ORDER_DIRECTION_BUY
-	if !longClosed && !shortClosed {
-		return nil
-	}
-
-	t.currentPosition.AddOrderTrade(orderTrades.GetTrades()...)
-
-	var executedQuantity int64
-	for _, trade := range t.currentPosition.OrderTrades() {
-		executedQuantity += trade.GetQuantity() / int64(t.currentPosition.Instrument().Lot)
-	}
-	if executedQuantity < t.currentPosition.Position().Quantity {
-		t.logger.Info("Position partially closed", zap.Any("executedQuantity", executedQuantity))
-		return nil
-	}
-
-	if err := t.cancelStopOrders(ctx); err != nil {
-		return err
-	}
-
-	orderState, err := t.getExecutedOrderState(ctx, orderTrades.OrderId)
-	if err != nil {
-		return fmt.Errorf("get executed order state: %w", err)
-	}
-
-	closePrice := NewMoneyValue(orderState.AveragePositionPrice)
-	commission := NewMoneyValue(orderState.InitialCommission)
-	t.currentPosition.AddCommission(commission.ToFloat())
-
-	position, err = t.currentPosition.Close(closePrice.ToFloat())
-	if err != nil {
-		if errors.Is(err, trengin.ErrAlreadyClosed) {
-			t.logger.Info("Position already closed", zap.Any("position", t.currentPosition))
+	err := t.positionStorage.ForEach(func(tinkoffPosition *tnkposition.Position) error {
+		position := tinkoffPosition.Position()
+		if orderTrades.Figi != position.FIGI {
 			return nil
 		}
-		return fmt.Errorf("close: %w", err)
-	}
+		longClosed := position.IsLong() && orderTrades.Direction == investapi.OrderDirection_ORDER_DIRECTION_SELL
+		shortClosed := position.IsShort() && orderTrades.Direction == investapi.OrderDirection_ORDER_DIRECTION_BUY
+		if !longClosed && !shortClosed {
+			return nil
+		}
 
-	t.logger.Info(
-		"Position was closed by order trades",
-		zap.Any("orderTrades", orderTrades),
-		zap.Any("position", position),
-	)
-	return nil
+		conditionalOrdersFound, err := t.conditionalOrdersFound(ctx, tinkoffPosition)
+		if err != nil {
+			return fmt.Errorf("conditional orders found: %w", err)
+		}
+		if conditionalOrdersFound {
+			return nil
+		}
+
+		logger := t.logger.With(zap.Any("position", position))
+		tinkoffPosition.AddOrderTrade(orderTrades.GetTrades()...)
+
+		var executedQuantity int64
+		for _, trade := range tinkoffPosition.OrderTrades() {
+			executedQuantity += trade.GetQuantity() / int64(tinkoffPosition.Instrument().Lot)
+		}
+		if executedQuantity < position.Quantity {
+			logger.Info("Position partially closed", zap.Any("executedQuantity", executedQuantity))
+			return nil
+		}
+
+		if err := t.cancelStopOrders(ctx, tinkoffPosition); err != nil {
+			return fmt.Errorf("cancel stop orders: %w", err)
+		}
+
+		orderState, err := t.getExecutedOrderState(ctx, orderTrades.OrderId)
+		if err != nil {
+			return fmt.Errorf("get executed order state: %w", err)
+		}
+
+		closePrice := NewMoneyValue(orderState.AveragePositionPrice)
+		commission := NewMoneyValue(orderState.InitialCommission)
+		tinkoffPosition.AddCommission(commission.ToFloat())
+
+		if err := tinkoffPosition.Close(closePrice.ToFloat()); err != nil {
+			if errors.Is(err, trengin.ErrAlreadyClosed) {
+				logger.Info("Position already closed")
+				return nil
+			}
+			return fmt.Errorf("close: %w", err)
+		}
+		logger.Info("Position was closed by order trades", zap.Any("orderTrades", orderTrades))
+		return nil
+	})
+	return err
 }
 
 func (t *Tinkoff) ctxWithMetadata(ctx context.Context) context.Context {
@@ -613,7 +587,7 @@ func (t *Tinkoff) addProtectedSpread(
 	return t.convertFloatToQuotation(minPriceIncrement, priceFloat-positionType.Multiplier()*protectiveSpread)
 }
 
-func (t *Tinkoff) cancelStopOrders(ctx context.Context) error {
+func (t *Tinkoff) cancelStopOrders(ctx context.Context, tinkoffPosition *tnkposition.Position) error {
 	ctx = t.ctxWithMetadata(ctx)
 
 	resp, err := t.stopOrderClient.GetStopOrders(ctx, &investapi.GetStopOrdersRequest{
@@ -628,14 +602,15 @@ func (t *Tinkoff) cancelStopOrders(ctx context.Context) error {
 		orders[order.StopOrderId] = struct{}{}
 	}
 
-	stopLossID := t.currentPosition.StopLossID()
+	stopLossID := tinkoffPosition.StopLossID()
+	takeProfitID := tinkoffPosition.TakeProfitID()
 	if _, ok := orders[stopLossID]; ok {
 		if err := t.cancelStopOrder(ctx, stopLossID); err != nil {
 			return fmt.Errorf("cancel stop loss: %w", err)
 		}
 	}
-	if _, ok := orders[t.currentPosition.TakeProfitID()]; ok {
-		if err := t.cancelStopOrder(ctx, t.currentPosition.TakeProfitID()); err != nil {
+	if _, ok := orders[takeProfitID]; ok {
+		if err := t.cancelStopOrder(ctx, takeProfitID); err != nil {
 			return fmt.Errorf("cancel take profit: %w", err)
 		}
 	}
@@ -710,4 +685,17 @@ func (t *Tinkoff) getInstrument(ctx context.Context, figi string) (*investapi.In
 		return nil, fmt.Errorf("get instrument by %s: %w", figi, err)
 	}
 	return instrumentResponse.GetInstrument(), nil
+}
+
+func (t *Tinkoff) conditionalOrdersFound(ctx context.Context, position *tnkposition.Position) (bool, error) {
+	resp, err := t.stopOrderClient.GetStopOrders(ctx, &investapi.GetStopOrdersRequest{AccountId: t.accountID})
+	if err != nil {
+		return false, fmt.Errorf("get stop orders: %w", err)
+	}
+	for _, order := range resp.StopOrders {
+		if order.StopOrderId == position.TakeProfitID() || order.StopOrderId == position.StopLossID() {
+			return true, nil
+		}
+	}
+	return false, nil
 }

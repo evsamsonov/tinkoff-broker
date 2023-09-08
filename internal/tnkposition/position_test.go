@@ -1,4 +1,4 @@
-package tnkbroker
+package tnkposition
 
 import (
 	"testing"
@@ -29,17 +29,16 @@ func Test_currentPosition_Close(t *testing.T) {
 	assert.NoError(t, err)
 
 	closed := make(chan trengin.Position, 1)
-	currentPosition := currentPosition{
+	currentPosition := Position{
 		position:     pos,
 		stopLossID:   "2",
 		takeProfitID: "3",
 		closed:       closed,
 	}
-	_, err = currentPosition.Close(123.45)
+	err = currentPosition.Close(123.45)
 	assert.NoError(t, err)
 	assert.Equal(t, "", currentPosition.StopLossID())
 	assert.Equal(t, "", currentPosition.TakeProfitID())
-	assert.False(t, currentPosition.Exist())
 
 	select {
 	case pos := <-closed:
