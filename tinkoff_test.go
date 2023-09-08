@@ -5,8 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/evsamsonov/tinkoff-broker/internal/tnkposition"
-
+	"github.com/evsamsonov/trengin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -14,7 +13,7 @@ import (
 	"github.com/undefinedlabs/go-mpatch"
 	"go.uber.org/zap"
 
-	"github.com/evsamsonov/trengin"
+	"github.com/evsamsonov/tinkoff-broker/internal/tnkposition"
 )
 
 const (
@@ -215,8 +214,10 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 				assert.Equal(t, 0., position.TakeProfit)
 			}
 
-			//assert.Equal(t, tt.want.stopLossID, tinkoff.currentPosition.StopLossID())
-			//assert.Equal(t, tt.want.takeProfitID, tinkoff.currentPosition.TakeProfitID())
+			tinkoffPosition, _, err := tinkoff.positionStorage.Load(position.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want.stopLossID, tinkoffPosition.StopLossID())
+			assert.Equal(t, tt.want.takeProfitID, tinkoffPosition.TakeProfitID())
 		})
 	}
 }
@@ -373,8 +374,10 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 				assert.InEpsilon(t, NewMoneyValue(tt.want.takeProfit).ToFloat(), position.TakeProfit, float64EqualityThreshold)
 			}
 
-			//assert.Equal(t, tt.want.stopLossID, tinkoff.currentPosition.StopLossID())
-			//assert.Equal(t, tt.want.takeProfitID, tinkoff.currentPosition.TakeProfitID())
+			tinkoffPosition, _, err := tinkoff.positionStorage.Load(position.ID)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.want.stopLossID, tinkoffPosition.StopLossID())
+			assert.Equal(t, tt.want.takeProfitID, tinkoffPosition.TakeProfitID())
 		})
 	}
 }
