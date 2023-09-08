@@ -227,7 +227,7 @@ func TestTinkoff_ChangeConditionalOrder_noOpenPosition(t *testing.T) {
 		positionStorage: tnkposition.NewStorage(),
 	}
 	_, err := tinkoff.ChangeConditionalOrder(context.Background(), trengin.ChangeConditionalOrderAction{})
-	assert.Errorf(t, err, "no open brokerPosition")
+	assert.Errorf(t, err, "no open position")
 }
 
 func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
@@ -260,7 +260,7 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 			},
 		},
 		{
-			name: "long brokerPosition, stop loss and take profit set are given",
+			name: "long position, stop loss and take profit set are given",
 			changeConditionOrderAction: trengin.ChangeConditionalOrderAction{
 				PositionID: trengin.PositionID{},
 				StopLoss:   123.43,
@@ -387,7 +387,7 @@ func TestTinkoff_ClosePosition_noOpenPosition(t *testing.T) {
 		positionStorage: tnkposition.NewStorage(),
 	}
 	_, err := tinkoff.ClosePosition(context.Background(), trengin.ClosePositionAction{})
-	assert.Errorf(t, err, "no open brokerPosition")
+	assert.Errorf(t, err, "no open position")
 }
 
 func TestTinkoff_ClosePosition(t *testing.T) {
