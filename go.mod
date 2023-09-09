@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.3.1
 	github.com/stretchr/testify v1.8.4
 	github.com/tinkoff/invest-api-go-sdk v1.0.2
-	github.com/undefinedlabs/go-mpatch v1.0.7
+	github.com/undefinedlabs/go-mpatch v1.0.6
 	go.uber.org/zap v1.25.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/term v0.12.0
