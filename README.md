@@ -11,7 +11,7 @@ for creating automated trading robots.
 ## Features
 - Opens position, changes stop loss and take profit, closes position.
 - Tracks open position.
-- Doesn't support multiple open positions at the same time.
+- Supports multiple open positions at the same time.
 - Commission in position is approximate.
 
 ## How to use
@@ -48,8 +48,7 @@ func main() {
 }
 
 type Strategy struct{}
-func (s *Strategy) Run(ctx context.Context) error { panic("implement me") }
-func (s *Strategy) Actions() trengin.Actions { panic("implement me") }
+func (s *Strategy) Run(ctx context.Context, actions Actions) error { panic("implement me") }
 ```
 
 See more details in [trengin documentation](http://github.com/evsamsonov/trengin).
