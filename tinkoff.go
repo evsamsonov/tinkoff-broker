@@ -1,5 +1,5 @@
 // Package tnkbroker implements [trengin.Broker] using [Tinkoff Invest API].
-// The implementation doesn't support multiple open positions at the same time.
+// Supports multiple open positions at the same time.
 // Commission in position is approximate.
 //
 // [Tinkoff Invest API]: https://tinkoff.github.io/investAPI/
