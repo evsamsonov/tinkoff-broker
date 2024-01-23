@@ -65,7 +65,6 @@ func (s *Storage) ForEach(f func(pos *Position) error) error {
 			return nil
 		}
 		if err := f(pos); err != nil {
-			pos.mtx.Unlock()
 			return err
 		}
 		return nil
