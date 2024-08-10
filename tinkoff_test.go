@@ -7,9 +7,10 @@ import (
 
 	"github.com/evsamsonov/trengin/v2"
 	"github.com/google/uuid"
+	investapi "github.com/russianinvestments/invest-api-go-sdk/investgo"
+	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
-	investapi "github.com/tinkoff/invest-api-go-sdk"
 	"github.com/undefinedlabs/go-mpatch"
 	"go.uber.org/zap"
 
@@ -23,10 +24,10 @@ const (
 func TestTinkoff_OpenPosition(t *testing.T) {
 	type testWant struct {
 		positionType       trengin.PositionType
-		orderDirection     investapi.OrderDirection
-		stopOrderDirection investapi.StopOrderDirection
-		openPrice          *investapi.MoneyValue
-		stopLoss           *investapi.Quotation
+		orderDirection     pb.OrderDirection
+		stopOrderDirection pb.StopOrderDirection
+		openPrice          *pb.MoneyValue
+		stopLoss           *pb.Quotation
 		takeProfit         *investapi.Quotation
 		stopLossID         string
 		takeProfitID       string

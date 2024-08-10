@@ -1,6 +1,6 @@
 package tnkbroker
 
-import investapi "github.com/tinkoff/invest-api-go-sdk"
+import investapi "github.com/russianinvestments/invest-api-go-sdk/investgo"
 
 // nolint: lll,unused
 //

@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	investapi "github.com/tinkoff/invest-api-go-sdk"
+	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 
 	"github.com/evsamsonov/trengin/v2"
 )
@@ -15,13 +15,13 @@ type Position struct {
 	closed       chan trengin.Position
 	stopLossID   string
 	takeProfitID string
-	orderTrades  []*investapi.OrderTrade
-	instrument   *investapi.Instrument
+	orderTrades  []*pb.OrderTrade
+	instrument   *pb.Instrument
 }
 
 func NewPosition(
 	pos *trengin.Position,
-	instrument *investapi.Instrument,
+	instrument *pb.Instrument,
 	stopLossID string,
 	takeProfitID string,
 	closed chan trengin.Position,
@@ -45,7 +45,7 @@ func (p *Position) SetTakeProfitID(id string, takeProfit float64) {
 	p.position.TakeProfit = takeProfit
 }
 
-func (p *Position) AddOrderTrade(orderTrades ...*investapi.OrderTrade) {
+func (p *Position) AddOrderTrade(orderTrades ...*pb.OrderTrade) {
 	p.orderTrades = append(p.orderTrades, orderTrades...)
 }
 
@@ -65,12 +65,12 @@ func (p *Position) Position() trengin.Position {
 	return *p.position
 }
 
-func (p *Position) Instrument() *investapi.Instrument {
+func (p *Position) Instrument() *pb.Instrument {
 	return p.instrument
 }
 
-func (p *Position) OrderTrades() []*investapi.OrderTrade {
-	result := make([]*investapi.OrderTrade, len(p.orderTrades))
+func (p *Position) OrderTrades() []*pb.OrderTrade {
+	result := make([]*pb.OrderTrade, len(p.orderTrades))
 	copy(result, p.orderTrades)
 	return p.orderTrades
 }
