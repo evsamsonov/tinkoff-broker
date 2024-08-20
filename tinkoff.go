@@ -18,8 +18,6 @@ import (
 	pb "github.com/russianinvestments/invest-api-go-sdk/proto"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"github.com/evsamsonov/tinkoff-broker/internal/tnkposition"
 )
@@ -454,19 +452,13 @@ func (t *Tinkoff) cancelStopOrder(id string) error {
 	if id == "" {
 		return nil
 	}
-	logger := t.logger.With(zap.String("id", id))
 
-	_, err := t.stopOrderClient.CancelStopOrder(t.accountID, id)
-	if status.Code(err) == codes.NotFound {
-		logger.Warn("Stop order is not found", zap.Error(err))
-		return nil
-	}
-	if err != nil {
-		logger.Error("Failed to cancel stop order", zap.Error(err))
+	logger := t.logger.With(zap.String("id", id))
+	if _, err := t.stopOrderClient.CancelStopOrder(t.accountID, id); err != nil {
 		return fmt.Errorf("cancel stop order: %w", err)
 	}
 
-	t.logger.Info("Stop order was canceled", zap.String("id", id))
+	logger.Info("Stop order was canceled", zap.String("id", id))
 	return nil
 }
 
