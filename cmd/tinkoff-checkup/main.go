@@ -29,11 +29,13 @@ import (
 	"os"
 	"syscall"
 
-	tnkbroker "github.com/evsamsonov/tinkoff-broker"
 	"github.com/evsamsonov/trengin/v2"
+	"github.com/russianinvestments/invest-api-go-sdk/investgo"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
+
+	tnkbroker "github.com/evsamsonov/tinkoff-broker"
 )
 
 func main() {
@@ -140,17 +142,30 @@ func NewTinkoffCheckuper(verbose bool) (*TinkoffCheckuper, error) {
 }
 
 func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	tinkoffConfig := investgo.Config{
+		EndPoint:  "invest-public-api.tinkoff.ru:443",
+		Token:     params.tinkoffToken,
+		AppName:   "evsamsonov.gdealer",
+		AccountId: params.accountID,
+	}
+	tinkoffClient, err := investgo.NewClient(ctx, tinkoffConfig, t.logger.Sugar())
+	if err != nil {
+		return fmt.Errorf("create tinkoff client: %w", err)
+	}
+
 	tinkoffBroker, err := tnkbroker.New(
-		params.tinkoffToken,
+		tinkoffClient,
 		params.accountID,
 		tnkbroker.WithLogger(t.logger),
 	)
 	if err != nil {
 		return fmt.Errorf("create tinkoff broker: %w", err)
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
 		defer cancel()
