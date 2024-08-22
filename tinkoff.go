@@ -19,7 +19,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/evsamsonov/tinkoff-broker/internal/tnkposition"
+	"github.com/evsamsonov/tinkoff-broker/v2/internal/tnkposition"
 )
 
 var _ trengin.Broker = &Tinkoff{}
@@ -77,10 +77,8 @@ func WithTradeStreamPingWaitDuration(duration time.Duration) Option {
 	}
 }
 
-// New creates a new Tinkoff object. It takes [full-access token], todo?
+// New creates a new Tinkoff object. It takes Tinkoff Client and
 // user account identifier.
-//
-// [full-access token]: https://tinkoff.github.io/investAPI/token/
 func New(client *investgo.Client, accountID string, opts ...Option) (*Tinkoff, error) {
 	tinkoff := &Tinkoff{
 		accountID:                   accountID,

@@ -1,4 +1,4 @@
-module github.com/evsamsonov/tinkoff-broker
+module github.com/evsamsonov/tinkoff-broker/v2
 
 go 1.21
 

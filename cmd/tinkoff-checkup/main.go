@@ -35,13 +35,14 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/term"
 
-	tnkbroker "github.com/evsamsonov/tinkoff-broker"
+	tnkbroker "github.com/evsamsonov/tinkoff-broker/v2"
 )
 
 func main() {
 	if len(os.Args) < 3 {
 		fmt.Println(
 			"This command checks all methods of Tinkoff Broker.\n" +
+				"This command checks all methods of Tinkoff Broker.\n" +
 				"It opens position, changes conditional orders, closes position.",
 		)
 		fmt.Println("\nUsage: tinkoff-checkup [ACCOUNT_ID] [INSTRUMENT_FIGI] [-v]")

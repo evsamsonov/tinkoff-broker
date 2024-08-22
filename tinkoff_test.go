@@ -14,7 +14,7 @@ import (
 	"github.com/undefinedlabs/go-mpatch"
 	"go.uber.org/zap"
 
-	"github.com/evsamsonov/tinkoff-broker/internal/tnkposition"
+	"github.com/evsamsonov/tinkoff-broker/v2/internal/tnkposition"
 )
 
 const (

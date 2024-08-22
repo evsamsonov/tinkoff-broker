@@ -29,7 +29,7 @@ import (
 	"github.com/russianinvestments/invest-api-go-sdk/investgo"
 	"go.uber.org/zap"
 
-	tnkbroker "github.com/evsamsonov/tinkoff-broker"
+	tnkbroker "github.com/evsamsonov/tinkoff-broker/v2"
 )
 
 func main() {
