@@ -6,7 +6,7 @@ to trade with a specific token, instrument and account.
 
 How to install:
 
-	go install github.com/evsamsonov/tinkoff-broker/cmd/tinkoff-checkup@latest
+	go install github.com/evsamsonov/tinkoff-broker/v2/cmd/tinkoff-checkup@latest
 
 Usage:
 

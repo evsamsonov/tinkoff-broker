@@ -85,7 +85,7 @@ Use `tinkoff-checkup` for checking the ability to trade with a specific token, i
 ### How to install
 
 ```bash
-go install github.com/evsamsonov/tinkoff-broker/cmd/tinkoff-checkup@latest
+go install github.com/evsamsonov/tinkoff-broker/v2/cmd/tinkoff-checkup@latest
 ```
 
 ### How to use 
