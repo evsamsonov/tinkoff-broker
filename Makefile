@@ -12,7 +12,7 @@ lint: ## Run golang lint using docker
 		-v ${GOPATH}/pkg/mod:/go/pkg/mod \
  		-v ${PWD}:/app \
  		-w /app \
-	    golangci/golangci-lint:v1.54.2 \
+	    golangci/golangci-lint:v1.59.1 \
 	    golangci-lint run -v --modules-download-mode=readonly
 
 test: ## Run tests
@@ -26,3 +26,6 @@ doc: ## Run doc server using docker
         -w /go/src/github.com/evsamsonov/tinkoff-broker \
         golang:latest \
         bash -c "go install golang.org/x/tools/cmd/godoc@latest && /go/bin/godoc -http=:6060"
+
+generate: ## Run go generate
+	go generate ./...
