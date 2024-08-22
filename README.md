@@ -44,11 +44,10 @@ func main() {
 	if err != nil {
 		log.Fatal("Failed to create tinkoff client", zap.Error(err))
 	}
-
-	// todo fix me
+	
 	tinkoffBroker, err := tnkbroker.New(
 		tinkoffClient,
-		"123",
+		"[account-id]",
 		// options...
 	)
 	if err != nil {
