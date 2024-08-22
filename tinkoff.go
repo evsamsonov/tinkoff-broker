@@ -565,7 +565,7 @@ func (t *Tinkoff) getExecutedOrderState(
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(250 * time.Millisecond):
+		case <-time.After(1 * time.Second):
 		}
 	}
 	return orderState, nil
