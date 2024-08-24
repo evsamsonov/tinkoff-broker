@@ -551,7 +551,7 @@ func (t *Tinkoff) getExecutedOrderState(
 	ctx context.Context,
 	orderID string,
 ) (orderState *investgo.GetOrderStateResponse, err error) {
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 60*time.Second)
 	defer cancel()
 
 	for {
@@ -565,7 +565,7 @@ func (t *Tinkoff) getExecutedOrderState(
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case <-time.After(250 * time.Millisecond):
+		case <-time.After(1 * time.Second):
 		}
 	}
 	return orderState, nil
