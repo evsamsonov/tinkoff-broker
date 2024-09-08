@@ -281,6 +281,8 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *pb.OrderT
 	}
 	err := t.positionStorage.ForEach(func(tinkoffPosition *tnkposition.Position) error {
 		position := tinkoffPosition.Position()
+		logger := t.logger.With(zap.Any("position", position), zap.Any("orderTrades", orderTrades))
+
 		if orderTrades.Figi != position.FIGI {
 			return nil
 		}
@@ -290,15 +292,17 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *pb.OrderT
 			return nil
 		}
 
+		// Conditional orders may not be processed in real time. Wait a little to be sure
+		<-time.After(300 * time.Millisecond)
 		conditionalOrdersFound, err := t.conditionalOrdersFound(tinkoffPosition)
 		if err != nil {
 			return fmt.Errorf("conditional orders found: %w", err)
 		}
 		if conditionalOrdersFound {
+			logger.Debug("Conditional orders were found")
 			return nil
 		}
 
-		logger := t.logger.With(zap.Any("position", position))
 		tinkoffPosition.AddOrderTrade(orderTrades.GetTrades()...)
 
 		var executedQuantity int64
@@ -330,7 +334,7 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *pb.OrderT
 			}
 			return fmt.Errorf("close: %w", err)
 		}
-		logger.Info("Position was closed by order trades", zap.Any("orderTrades", orderTrades))
+		logger.Info("Position was closed by order trades")
 		return nil
 	})
 	return err
