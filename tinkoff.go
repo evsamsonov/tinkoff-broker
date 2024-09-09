@@ -293,7 +293,7 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *pb.OrderT
 		}
 
 		// Conditional orders may not be processed in real time. Wait a little to be sure
-		<-time.After(300 * time.Millisecond)
+		//<-time.After(1 * time.Second)
 		conditionalOrdersFound, err := t.conditionalOrdersFound(tinkoffPosition)
 		if err != nil {
 			return fmt.Errorf("conditional orders found: %w", err)
@@ -597,7 +597,13 @@ func (t *Tinkoff) conditionalOrdersFound(position *tnkposition.Position) (bool, 
 	if err != nil {
 		return false, fmt.Errorf("get stop orders: %w", err)
 	}
+	t.logger.Debug("Stop orders", zap.Any("stopOrders", resp.StopOrders))
+
 	for _, order := range resp.StopOrders {
+		if order.Status != pb.StopOrderStatusOption_STOP_ORDER_STATUS_ACTIVE {
+			continue
+		}
+
 		if order.StopOrderId == position.TakeProfitID() || order.StopOrderId == position.StopLossID() {
 			return true, nil
 		}
