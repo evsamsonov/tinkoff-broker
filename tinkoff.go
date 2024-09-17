@@ -292,8 +292,6 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *pb.OrderT
 			return nil
 		}
 
-		// Conditional orders may not be processed in real time. Wait a little to be sure
-		//<-time.After(1 * time.Second)
 		conditionalOrdersFound, err := t.conditionalOrdersFound(tinkoffPosition)
 		if err != nil {
 			return fmt.Errorf("conditional orders found: %w", err)
