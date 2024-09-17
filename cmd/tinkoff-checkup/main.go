@@ -42,7 +42,6 @@ func main() {
 	if len(os.Args) < 3 {
 		fmt.Println(
 			"This command checks all methods of Tinkoff Broker.\n" +
-				"This command checks all methods of Tinkoff Broker.\n" +
 				"It opens position, changes conditional orders, closes position.",
 		)
 		fmt.Println("\nUsage: tinkoff-checkup [ACCOUNT_ID] [INSTRUMENT_FIGI] [-v]")

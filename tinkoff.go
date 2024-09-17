@@ -281,6 +281,8 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *pb.OrderT
 	}
 	err := t.positionStorage.ForEach(func(tinkoffPosition *tnkposition.Position) error {
 		position := tinkoffPosition.Position()
+		logger := t.logger.With(zap.Any("position", position), zap.Any("orderTrades", orderTrades))
+
 		if orderTrades.Figi != position.FIGI {
 			return nil
 		}
@@ -295,10 +297,10 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *pb.OrderT
 			return fmt.Errorf("conditional orders found: %w", err)
 		}
 		if conditionalOrdersFound {
+			logger.Debug("Conditional orders were found")
 			return nil
 		}
 
-		logger := t.logger.With(zap.Any("position", position))
 		tinkoffPosition.AddOrderTrade(orderTrades.GetTrades()...)
 
 		var executedQuantity int64
@@ -330,7 +332,7 @@ func (t *Tinkoff) processOrderTrades(ctx context.Context, orderTrades *pb.OrderT
 			}
 			return fmt.Errorf("close: %w", err)
 		}
-		logger.Info("Position was closed by order trades", zap.Any("orderTrades", orderTrades))
+		logger.Info("Position was closed by order trades")
 		return nil
 	})
 	return err
@@ -593,7 +595,13 @@ func (t *Tinkoff) conditionalOrdersFound(position *tnkposition.Position) (bool, 
 	if err != nil {
 		return false, fmt.Errorf("get stop orders: %w", err)
 	}
+	t.logger.Debug("Stop orders", zap.Any("stopOrders", resp.StopOrders))
+
 	for _, order := range resp.StopOrders {
+		if order.Status != pb.StopOrderStatusOption_STOP_ORDER_STATUS_ACTIVE {
+			continue
+		}
+
 		if order.StopOrderId == position.TakeProfitID() || order.StopOrderId == position.StopLossID() {
 			return true, nil
 		}
