@@ -1,8 +1,8 @@
-// Package tnkbroker implements [trengin.Broker] using [Tinkoff Invest API].
+// Package tnkbroker implements [trengin.Broker] using [T-Invest API].
 // Supports multiple open positions at the same time.
 // Commission in position is approximate.
 //
-// [Tinkoff Invest API]: https://tinkoff.github.io/investAPI/
+// [T-Invest API]: https://developer.tbank.ru/invest/intro/intro/
 package tnkbroker
 
 import (
@@ -238,7 +238,7 @@ func (t *Tinkoff) readTradesStream(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	tradesStream, err := t.tradeStreamClient.TradesStream([]string{t.accountID})
+	tradesStream, err := t.tradeStreamClient.TradesStream([]string{t.accountID}, nil)
 	if err != nil {
 		return fmt.Errorf("trades stream: %w", err)
 	}
@@ -420,14 +420,16 @@ func (t *Tinkoff) setStopOrder(
 
 	price := t.addProtectedSpread(position.Type, stopPrice, instrument.MinPriceIncrement)
 	stopOrderRequest := &investgo.PostStopOrderRequest{
-		InstrumentId:   position.FIGI,
-		Quantity:       position.Quantity,
-		Price:          price,
-		StopPrice:      stopPrice,
-		Direction:      stopOrderDirection,
-		AccountId:      t.accountID,
-		ExpirationType: pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
-		StopOrderType:  reqStopOrderType,
+		InstrumentId:      position.FIGI,
+		Quantity:          position.Quantity,
+		Price:             price,
+		StopPrice:         stopPrice,
+		Direction:         stopOrderDirection,
+		AccountId:         t.accountID,
+		ExpirationType:    pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
+		StopOrderType:     reqStopOrderType,
+		ExchangeOrderType: pb.ExchangeOrderType_EXCHANGE_ORDER_TYPE_LIMIT,
+		OrderID:           uuid.New().String(),
 	}
 
 	stopOrder, err := t.stopOrderClient.PostStopOrder(stopOrderRequest)
@@ -574,7 +576,7 @@ func (t *Tinkoff) getExecutedOrderState(
 }
 
 func (t *Tinkoff) getOrderState(orderID string) (orderState *investgo.GetOrderStateResponse, err error) {
-	orderState, err = t.orderClient.GetOrderState(t.accountID, orderID, pb.PriceType_PRICE_TYPE_CURRENCY)
+	orderState, err = t.orderClient.GetOrderState(t.accountID, orderID, pb.PriceType_PRICE_TYPE_CURRENCY, nil)
 	if err != nil {
 		t.logger.Error("Failed to get order state", zap.Error(err), zap.Any("orderID", orderID))
 		return nil, fmt.Errorf("get order state: %w", err)

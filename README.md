@@ -5,7 +5,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/evsamsonov/tinkoff-broker)](https://goreportcard.com/report/github.com/evsamsonov/tinkoff-broker)
 [![codecov](https://codecov.io/gh/evsamsonov/tinkoff-broker/branch/master/graph/badge.svg?token=AC751PKE5Y)](https://codecov.io/gh/evsamsonov/tinkoff-broker)
 
-An implementation of [trengin.Broker](http://github.com/evsamsonov/trengin) using [Tinkoff Invest API](https://tinkoff.github.io/investAPI/) 
+An implementation of [trengin.Broker](http://github.com/evsamsonov/trengin) using [T-Invest API](https://developer.tbank.ru/invest/intro/intro/) 
 for creating automated trading robots. 
 
 ## Features
@@ -36,7 +36,7 @@ func main() {
 	ctx := context.Background()
 
 	tinkoffConfig := investgo.Config{
-		EndPoint:  "invest-public-api.tinkoff.ru:443",
+		EndPoint:  "invest-public-api.tbank.ru:443",
 		Token:     "[tinkoff-token]",
 		AccountId: "[account-id]",
 	}

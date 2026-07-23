@@ -14,9 +14,9 @@ type mockOrdersServiceClient struct {
 	mock.Mock
 }
 
-// GetOrderState provides a mock function with given fields: accountId, orderId, priceType
-func (_m *mockOrdersServiceClient) GetOrderState(accountId string, orderId string, priceType investapi.PriceType) (*investgo.GetOrderStateResponse, error) {
-	ret := _m.Called(accountId, orderId, priceType)
+// GetOrderState provides a mock function with given fields: accountId, orderId, priceType, orderIDType
+func (_m *mockOrdersServiceClient) GetOrderState(accountId string, orderId string, priceType investapi.PriceType, orderIDType *investapi.OrderIdType) (*investgo.GetOrderStateResponse, error) {
+	ret := _m.Called(accountId, orderId, priceType, orderIDType)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetOrderState")
@@ -24,19 +24,19 @@ func (_m *mockOrdersServiceClient) GetOrderState(accountId string, orderId strin
 
 	var r0 *investgo.GetOrderStateResponse
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, string, investapi.PriceType) (*investgo.GetOrderStateResponse, error)); ok {
-		return rf(accountId, orderId, priceType)
+	if rf, ok := ret.Get(0).(func(string, string, investapi.PriceType, *investapi.OrderIdType) (*investgo.GetOrderStateResponse, error)); ok {
+		return rf(accountId, orderId, priceType, orderIDType)
 	}
-	if rf, ok := ret.Get(0).(func(string, string, investapi.PriceType) *investgo.GetOrderStateResponse); ok {
-		r0 = rf(accountId, orderId, priceType)
+	if rf, ok := ret.Get(0).(func(string, string, investapi.PriceType, *investapi.OrderIdType) *investgo.GetOrderStateResponse); ok {
+		r0 = rf(accountId, orderId, priceType, orderIDType)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*investgo.GetOrderStateResponse)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(string, string, investapi.PriceType) error); ok {
-		r1 = rf(accountId, orderId, priceType)
+	if rf, ok := ret.Get(1).(func(string, string, investapi.PriceType, *investapi.OrderIdType) error); ok {
+		r1 = rf(accountId, orderId, priceType, orderIDType)
 	} else {
 		r1 = ret.Error(1)
 	}
