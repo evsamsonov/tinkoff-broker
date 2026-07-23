@@ -1,8 +1,6 @@
 module github.com/evsamsonov/tinkoff-broker/v2
 
-go 1.22
-
-toolchain go1.22.5
+go 1.22.5
 
 require (
 	github.com/evsamsonov/trengin/v2 v2.2.0
