@@ -148,7 +148,7 @@ func (t *TinkoffCheckuper) CheckUp(params CheckUpArgs) error {
 	g, ctx := errgroup.WithContext(ctx)
 
 	tinkoffConfig := investgo.Config{
-		EndPoint:  "invest-public-api.tinkoff.ru:443",
+		EndPoint:  "invest-public-api.tbank.ru:443",
 		Token:     params.tinkoffToken,
 		AppName:   "evsamsonov.gdealer",
 		AccountId: params.accountID,

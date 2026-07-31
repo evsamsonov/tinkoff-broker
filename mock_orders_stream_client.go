@@ -12,9 +12,9 @@ type mockOrdersStreamClient struct {
 	mock.Mock
 }
 
-// TradesStream provides a mock function with given fields: accounts
-func (_m *mockOrdersStreamClient) TradesStream(accounts []string) (*investgo.TradesStream, error) {
-	ret := _m.Called(accounts)
+// TradesStream provides a mock function with given fields: accounts, pingDelayMs
+func (_m *mockOrdersStreamClient) TradesStream(accounts []string, pingDelayMs *int32) (*investgo.TradesStream, error) {
+	ret := _m.Called(accounts, pingDelayMs)
 
 	if len(ret) == 0 {
 		panic("no return value specified for TradesStream")
@@ -22,19 +22,19 @@ func (_m *mockOrdersStreamClient) TradesStream(accounts []string) (*investgo.Tra
 
 	var r0 *investgo.TradesStream
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]string) (*investgo.TradesStream, error)); ok {
-		return rf(accounts)
+	if rf, ok := ret.Get(0).(func([]string, *int32) (*investgo.TradesStream, error)); ok {
+		return rf(accounts, pingDelayMs)
 	}
-	if rf, ok := ret.Get(0).(func([]string) *investgo.TradesStream); ok {
-		r0 = rf(accounts)
+	if rf, ok := ret.Get(0).(func([]string, *int32) *investgo.TradesStream); ok {
+		r0 = rf(accounts, pingDelayMs)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*investgo.TradesStream)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]string) error); ok {
-		r1 = rf(accounts)
+	if rf, ok := ret.Get(1).(func([]string, *int32) error); ok {
+		r1 = rf(accounts, pingDelayMs)
 	} else {
 		r1 = ret.Error(1)
 	}

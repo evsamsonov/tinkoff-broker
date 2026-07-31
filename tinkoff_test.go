@@ -163,7 +163,7 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 					}}, nil)
 
 			ordersServiceClient.
-				On("GetOrderState", "123", "1953", pb.PriceType_PRICE_TYPE_CURRENCY).
+				On("GetOrderState", "123", "1953", pb.PriceType_PRICE_TYPE_CURRENCY, (*pb.OrderIdType)(nil)).
 				Return(&investgo.GetOrderStateResponse{
 					OrderState: &pb.OrderState{
 						InitialCommission:     &pb.MoneyValue{Units: 12, Nano: 0.1 * 10e8},
@@ -174,14 +174,16 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 			if tt.openPositionAction.StopLossOffset != 0 {
 				stopOrdersServiceClient.
 					On("PostStopOrder", &investgo.PostStopOrderRequest{
-						InstrumentId:   "FUTSBRF06220",
-						Quantity:       2,
-						Price:          tt.want.stopLoss,
-						StopPrice:      tt.want.stopLoss,
-						Direction:      tt.want.stopOrderDirection,
-						AccountId:      "123",
-						ExpirationType: pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
-						StopOrderType:  pb.StopOrderType_STOP_ORDER_TYPE_STOP_LIMIT,
+						InstrumentId:      "FUTSBRF06220",
+						Quantity:          2,
+						Price:             tt.want.stopLoss,
+						StopPrice:         tt.want.stopLoss,
+						Direction:         tt.want.stopOrderDirection,
+						AccountId:         "123",
+						ExpirationType:    pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
+						StopOrderType:     pb.StopOrderType_STOP_ORDER_TYPE_STOP_LIMIT,
+						ExchangeOrderType: pb.ExchangeOrderType_EXCHANGE_ORDER_TYPE_LIMIT,
+						OrderID:           "8942e9ae-e4e1-11ec-8fea-0242ac120002",
 					}).
 					Return(&investgo.PostStopOrderResponse{
 						PostStopOrderResponse: &pb.PostStopOrderResponse{
@@ -193,14 +195,16 @@ func TestTinkoff_OpenPosition(t *testing.T) {
 			if tt.openPositionAction.TakeProfitOffset != 0 {
 				stopOrdersServiceClient.
 					On("PostStopOrder", &investgo.PostStopOrderRequest{
-						InstrumentId:   "FUTSBRF06220",
-						Quantity:       2,
-						Price:          tt.want.takeProfit,
-						StopPrice:      tt.want.takeProfit,
-						Direction:      tt.want.stopOrderDirection,
-						AccountId:      "123",
-						ExpirationType: pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
-						StopOrderType:  pb.StopOrderType_STOP_ORDER_TYPE_TAKE_PROFIT,
+						InstrumentId:      "FUTSBRF06220",
+						Quantity:          2,
+						Price:             tt.want.takeProfit,
+						StopPrice:         tt.want.takeProfit,
+						Direction:         tt.want.stopOrderDirection,
+						AccountId:         "123",
+						ExpirationType:    pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
+						StopOrderType:     pb.StopOrderType_STOP_ORDER_TYPE_TAKE_PROFIT,
+						ExchangeOrderType: pb.ExchangeOrderType_EXCHANGE_ORDER_TYPE_LIMIT,
+						OrderID:           "8942e9ae-e4e1-11ec-8fea-0242ac120002",
 					}).
 					Return(&investgo.PostStopOrderResponse{
 						PostStopOrderResponse: &pb.PostStopOrderResponse{
@@ -298,6 +302,12 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 			instrumentServiceClient := &mockInstrumentsServiceClient{}
 			positionStorage := tnkposition.NewStorage()
 
+			patch, err := mpatch.PatchMethod(uuid.New, func() uuid.UUID {
+				return uuid.MustParse("8942e9ae-e4e1-11ec-8fea-0242ac120002")
+			})
+			defer func() { assert.NoError(t, patch.Unpatch()) }()
+			assert.NoError(t, err)
+
 			tinkoff := &Tinkoff{
 				accountID:        "123",
 				orderClient:      ordersServiceClient,
@@ -339,14 +349,16 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 					Once()
 
 				stopOrdersServiceClient.On("PostStopOrder", &investgo.PostStopOrderRequest{
-					InstrumentId:   "FUTSBRF06220",
-					Quantity:       2,
-					Price:          tt.want.stopLoss,
-					StopPrice:      tt.want.stopLoss,
-					Direction:      tt.want.stopOrderDirection,
-					AccountId:      "123",
-					ExpirationType: pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
-					StopOrderType:  pb.StopOrderType_STOP_ORDER_TYPE_STOP_LIMIT,
+					InstrumentId:      "FUTSBRF06220",
+					Quantity:          2,
+					Price:             tt.want.stopLoss,
+					StopPrice:         tt.want.stopLoss,
+					Direction:         tt.want.stopOrderDirection,
+					AccountId:         "123",
+					ExpirationType:    pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
+					StopOrderType:     pb.StopOrderType_STOP_ORDER_TYPE_STOP_LIMIT,
+					ExchangeOrderType: pb.ExchangeOrderType_EXCHANGE_ORDER_TYPE_LIMIT,
+					OrderID:           "8942e9ae-e4e1-11ec-8fea-0242ac120002",
 				}).Return(&investgo.PostStopOrderResponse{
 					PostStopOrderResponse: &pb.PostStopOrderResponse{
 						StopOrderId: "2",
@@ -362,14 +374,16 @@ func TestTinkoff_ChangeConditionalOrder(t *testing.T) {
 
 				stopOrdersServiceClient.
 					On("PostStopOrder", &investgo.PostStopOrderRequest{
-						InstrumentId:   "FUTSBRF06220",
-						Quantity:       2,
-						Price:          tt.want.takeProfit,
-						StopPrice:      tt.want.takeProfit,
-						Direction:      tt.want.stopOrderDirection,
-						AccountId:      "123",
-						ExpirationType: pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
-						StopOrderType:  pb.StopOrderType_STOP_ORDER_TYPE_TAKE_PROFIT,
+						InstrumentId:      "FUTSBRF06220",
+						Quantity:          2,
+						Price:             tt.want.takeProfit,
+						StopPrice:         tt.want.takeProfit,
+						Direction:         tt.want.stopOrderDirection,
+						AccountId:         "123",
+						ExpirationType:    pb.StopOrderExpirationType_STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
+						StopOrderType:     pb.StopOrderType_STOP_ORDER_TYPE_TAKE_PROFIT,
+						ExchangeOrderType: pb.ExchangeOrderType_EXCHANGE_ORDER_TYPE_LIMIT,
+						OrderID:           "8942e9ae-e4e1-11ec-8fea-0242ac120002",
 					}).
 					Return(&investgo.PostStopOrderResponse{
 						PostStopOrderResponse: &pb.PostStopOrderResponse{
@@ -514,7 +528,7 @@ func TestTinkoff_ClosePosition(t *testing.T) {
 					}}, nil)
 
 			ordersServiceClient.
-				On("GetOrderState", "123", "1953", pb.PriceType_PRICE_TYPE_CURRENCY).
+				On("GetOrderState", "123", "1953", pb.PriceType_PRICE_TYPE_CURRENCY, (*pb.OrderIdType)(nil)).
 				Return(&investgo.GetOrderStateResponse{
 					OrderState: &pb.OrderState{
 						InitialCommission:     &pb.MoneyValue{Units: 12, Nano: 0.1 * 10e8},
@@ -670,7 +684,7 @@ func TestTinkoff_processOrderTrades(t *testing.T) {
 		Return(&investgo.CancelStopOrderResponse{}, nil)
 
 	ordersServiceClient.
-		On("GetOrderState", "123", "1953465028754600565", pb.PriceType_PRICE_TYPE_CURRENCY).
+		On("GetOrderState", "123", "1953465028754600565", pb.PriceType_PRICE_TYPE_CURRENCY, (*pb.OrderIdType)(nil)).
 		Return(&investgo.GetOrderStateResponse{
 			OrderState: &pb.OrderState{
 				InitialCommission:     &pb.MoneyValue{Units: 125, Nano: 0.6 * 10e8},

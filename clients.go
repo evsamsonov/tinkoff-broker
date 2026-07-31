@@ -10,7 +10,7 @@ import (
 //go:generate docker run --rm -v ${PWD}:/app -w /app vektra/mockery --name ordersServiceClient --inpackage --case snake
 type ordersServiceClient interface {
 	PostOrder(req *investgo.PostOrderRequest) (*investgo.PostOrderResponse, error)
-	GetOrderState(accountID, orderID string, priceType pb.PriceType) (*investgo.GetOrderStateResponse, error)
+	GetOrderState(accountID, orderID string, priceType pb.PriceType, orderIDType *pb.OrderIdType) (*investgo.GetOrderStateResponse, error)
 }
 
 // nolint: lll
@@ -26,7 +26,7 @@ type stopOrdersServiceClient interface {
 //
 //go:generate docker run --rm -v ${PWD}:/app -w /app vektra/mockery --name ordersStreamClient --inpackage --case snake
 type ordersStreamClient interface {
-	TradesStream(accounts []string) (*investgo.TradesStream, error)
+	TradesStream(accounts []string, pingDelayMs *int32) (*investgo.TradesStream, error)
 }
 
 // nolint: lll

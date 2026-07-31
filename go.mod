@@ -1,13 +1,11 @@
 module github.com/evsamsonov/tinkoff-broker/v2
 
-go 1.21
-
-toolchain go1.22.5
+go 1.22.5
 
 require (
 	github.com/evsamsonov/trengin/v2 v2.2.0
 	github.com/google/uuid v1.6.0
-	github.com/russianinvestments/invest-api-go-sdk v1.23.1
+	github.com/russianinvestments/invest-api-go-sdk v1.40.1
 	github.com/stretchr/testify v1.9.0
 	github.com/undefinedlabs/go-mpatch v1.0.6
 	go.uber.org/zap v1.27.0

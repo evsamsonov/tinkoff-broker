@@ -16,11 +16,11 @@ jobs:
           - goarch: arm64
             goos: windows
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: wangyoucao577/go-release-action@v1.32
         with:
           goos: ${{ matrix.goos }}
           goarch: ${{ matrix.goarch }}
-          goversion: "https://dl.google.com/go/go1.19.2.linux-amd64.tar.gz"
+          goversion: "1.22.5"
           project_path: "./cmd/tinkoff-checkup"
           binary_name: "tinkoff-checkup"
